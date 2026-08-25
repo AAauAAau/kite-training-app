@@ -283,7 +283,7 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
           {ringsAreaOptions.map((option) => {
             const selected = areas.includes(option.value);
             return (
-              <button key={option.value} className={selected ? 'selected' : ''} onClick={() => toggleArea(option.value)}>
+              <button key={option.value} className={selected ? 'selected' : ''} aria-pressed={selected} onClick={() => toggleArea(option.value)}>
                 <i>{selected && <CheckIcon />}</i>
                 <span><strong>{option.label}</strong><small>{option.detail}</small></span>
               </button>
@@ -297,7 +297,7 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
           <span className="eyebrow">Welche Skills?</span>
           <div className="skill-picker">
             {ringsSkillOptions.map((option) => (
-              <button key={option.value} className={skills.includes(option.value) ? 'selected' : ''} onClick={() => toggleSkill(option.value)}>{option.label}</button>
+              <button key={option.value} className={skills.includes(option.value) ? 'selected' : ''} aria-pressed={skills.includes(option.value)} onClick={() => toggleSkill(option.value)}>{option.label}</button>
             ))}
           </div>
         </section>
@@ -307,7 +307,7 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
         <span className="eyebrow">Dauer</span>
         <div className="rings-duration-picker">
           {[30, 45, 60, 90].map((minutes) => (
-            <button key={minutes} className={draft.durationMin === minutes ? 'selected' : ''} onClick={() => update({ ...draft, durationMin: minutes })}>{minutes} min</button>
+            <button key={minutes} className={draft.durationMin === minutes ? 'selected' : ''} aria-pressed={draft.durationMin === minutes} onClick={() => update({ ...draft, durationMin: minutes })}>{minutes} min</button>
           ))}
         </div>
       </section>
@@ -316,7 +316,7 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
         <span className="eyebrow">Gesamtbelastung</span>
         <div className="segmented rings-intensity">
           {(['chill', 'normal', 'hard'] as TrainingIntensity[]).map((value) => (
-            <button key={value} className={draft.intensity === value ? 'selected' : ''} onClick={() => update({ ...draft, intensity: value })}>{value === 'chill' ? 'Locker' : value === 'normal' ? 'Normal' : 'Hart'}</button>
+            <button key={value} className={draft.intensity === value ? 'selected' : ''} aria-pressed={draft.intensity === value} onClick={() => update({ ...draft, intensity: value })}>{value === 'chill' ? 'Locker' : value === 'normal' ? 'Normal' : 'Hart'}</button>
           ))}
         </div>
         <small>Lastpunkte: {draft.intensity === 'chill' ? '1,0' : draft.intensity === 'hard' ? '2,0' : '1,5'}</small>

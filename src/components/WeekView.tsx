@@ -5,7 +5,7 @@ import { useAppStore } from '../store';
 import { CheckIcon, WindIcon } from './Icons';
 import { KiteStrengthTrend } from './KiteStrengthTrend';
 
-const names = { A: 'Tag A · Beine / Push', B: 'Tag B · Zug / Landung', RINGS: 'Ringe', SPRINT: 'Sprint' };
+const names = { A: 'Tag A · Beine / Push', B: 'Tag B · Zug / Landung', RINGS: 'Die Ringe', SPRINT: 'Sprint' };
 
 export function WeekView() {
   const { sessions, settings } = useAppStore();
