@@ -60,7 +60,8 @@ export function SettingsView() {
         <div className="threshold-control"><input type="range" min="6" max="18" step="0.5" value={settings.loadThreshold7d} onChange={(event) => updateSettings({ loadThreshold7d: Number(event.target.value) })} /><strong>{settings.loadThreshold7d}</strong></div>
       </section>
       <section className="settings-card card">
-        <span className="eyebrow">Wochenplanung</span><h2>Hamburg-Tage</h2>
+        <span className="eyebrow">Wochenplanung</span><h2>Gym-Tage</h2>
+        <p>An diesen Tagen werden Tag A und Tag B eingeplant.</p>
         <div className="day-picker">
           {[['Mo', 1], ['Di', 2], ['Mi', 3], ['Do', 4], ['Fr', 5], ['Sa', 6], ['So', 0]].map(([label, day]) => (
             <button key={day} className={settings.hamburgDays.includes(Number(day)) ? 'selected' : ''} onClick={() => toggleHamburgDay(Number(day))}>{label}</button>

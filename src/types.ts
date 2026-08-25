@@ -84,7 +84,7 @@ export interface BoardOffStage {
 export interface PlannedSession {
   date: string;
   type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'SPRINT'>;
-  location: 'Hamburg' | 'Flensburg';
+  location: 'Gym' | 'Zuhause';
   overriddenByKite: boolean;
   completed: boolean;
 }

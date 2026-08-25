@@ -109,10 +109,10 @@ export function schedule(weekStart: string, sessions: Session[], settings: Setti
   );
   const flensburgDates = days.filter((date) => !hamburgDates.includes(date));
   const planned: Omit<PlannedSession, 'overriddenByKite' | 'completed'>[] = [];
-  if (strengthDates[0]) planned.push({ date: strengthDates[0], type: 'A', location: 'Hamburg' });
-  if (strengthDates[1]) planned.push({ date: strengthDates[1], type: 'B', location: 'Hamburg' });
+  if (strengthDates[0]) planned.push({ date: strengthDates[0], type: 'A', location: 'Gym' });
+  if (strengthDates[1]) planned.push({ date: strengthDates[1], type: 'B', location: 'Gym' });
   const flexDay = flensburgDates.find((date) => date > (strengthDates.at(-1) ?? weekStart)) ?? flensburgDates[0];
-  if (flexDay) planned.push({ date: flexDay, type: sprintWeek(sessions) <= 6 ? 'SPRINT' : 'RINGS', location: 'Flensburg' });
+  if (flexDay) planned.push({ date: flexDay, type: sprintWeek(sessions) <= 6 ? 'SPRINT' : 'RINGS', location: 'Zuhause' });
   return planned
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((item) => ({

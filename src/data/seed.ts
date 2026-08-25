@@ -71,7 +71,7 @@ export const exercises: Exercise[] = exerciseList.map((exercise) => ({
 
 export const templates: SessionTemplate[] = [
   {
-    type: 'A', title: 'Tag A', subtitle: 'Beine / Push · 50–60 min',
+    type: 'A', title: 'Tag A', subtitle: 'Gym · Beine / Push · 50–60 min',
     exercises: [
       { exerciseId: 'trap-bar-deadlift', sets: 4, defaultReps: 5 },
       { exerciseId: 'bulgarian-split-squat', sets: 3, defaultReps: 8 },
@@ -81,7 +81,7 @@ export const templates: SessionTemplate[] = [
     ]
   },
   {
-    type: 'B', title: 'Tag B', subtitle: 'Zug / Landung · 50–60 min',
+    type: 'B', title: 'Tag B', subtitle: 'Gym · Zug / Landung · 50–60 min',
     exercises: [
       { exerciseId: 'weighted-pullup', sets: 4, defaultReps: 5 },
       { exerciseId: 'front-squat-or-stepdown', sets: 4, defaultReps: 5, note: 'Step-down: 3×6/Seite, 3–4 s exzentrisch' },

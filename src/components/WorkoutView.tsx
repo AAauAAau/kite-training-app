@@ -193,10 +193,14 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
       {(draft.type === 'A' || draft.type === 'B') && (
         <section className="mobility-card card">
-          <div><span className="eyebrow">5 min vorab</span><h3>Mobility</h3></div>
-          {mobilityItems.map((item) => {
-            const checked = draft.mobilityDone.includes(item.id);
-            return <button key={item.id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>;
+          <div><span className="eyebrow">Vor der ersten Übung</span><h3>Aufwärmen</h3></div>
+          {[
+            ['warmup-cardio', '5 min locker Bike, Rudergerät oder Laufband'],
+            ['warmup-movement', '10 Squats ohne Gewicht + 10 Hip Hinges'],
+            ['warmup-ramp', '2–4 steigende Aufwärmsätze der ersten Übung']
+          ].map(([id, label]) => {
+            const checked = draft.mobilityDone.includes(id);
+            return <button key={id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((value) => value !== id) : [...draft.mobilityDone, id] })}><i>{checked && <CheckIcon />}</i><span>{label}</span></button>;
           })}
         </section>
       )}
@@ -240,6 +244,16 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} />;
         })}
       </div>}
+
+      {(draft.type === 'A' || draft.type === 'B') && (
+        <section className="mobility-card cooldown-card card">
+          <div><span className="eyebrow">Danach oder separat · optional</span><h3>Mobility / Dehnen</h3></div>
+          {mobilityItems.map((item) => {
+            const checked = draft.mobilityDone.includes(item.id);
+            return <button key={item.id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>;
+          })}
+        </section>
+      )}
 
       <label className="note-field card"><span>Notiz · optional</span><textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Technik, Schmerz, Variante …" rows={2} /></label>
       <div className="workout-actions"><button className="primary" onClick={save} disabled={saving || (draft.type === 'RINGS' && !draft.ringsAreas?.length)}>{saving ? 'Speichert …' : draft.type === 'RINGS' && !draft.ringsAreas?.length ? 'Bereich auswählen' : 'Einheit abschließen'}</button></div>
