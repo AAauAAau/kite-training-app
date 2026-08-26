@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react';
 import { addDays, formatShortDate, localDate, startOfWeek } from '../logic/date';
-import { schedule } from '../logic/training';
+import { schedule, strengthWarnings } from '../logic/training';
 import { useAppStore } from '../store';
 import { CheckIcon, WindIcon } from './Icons';
 import { KiteStrengthTrend } from './KiteStrengthTrend';
 
-const names = { A: 'Tag A · Beine / Push', B: 'Tag B · Zug / Landung', RINGS: 'Die Ringe', SPRINT: 'Sprint' };
+const names = { A: 'Tag A · Beine / Push', B: 'Tag B · Zug / Landung', RINGS: 'Ringe-Circuit', KB: 'KB-Circuit', SPRINT: 'Sprint' };
 
 export function WeekView() {
   const { sessions, settings } = useAppStore();
@@ -28,6 +28,7 @@ export function WeekView() {
             <div className="plan-card card">
               <span className="eyebrow">{item.location}</span>
               {item.overriddenByKite ? <><h3><WindIcon /> Wind hat übernommen</h3><p>{names[item.type]} entfällt still.</p></> : <><h3>{names[item.type]}</h3><p>{item.completed ? 'Erledigt' : 'Geplant'}</p></>}
+              {strengthWarnings(item.type, item.date, sessions).map((warning) => <p className="plan-warning" key={warning}>{warning}</p>)}
               {item.completed && <span className="done-badge"><CheckIcon /> erledigt</span>}
             </div>
           </article>

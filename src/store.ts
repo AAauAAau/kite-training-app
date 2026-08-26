@@ -2,13 +2,14 @@ import { create } from 'zustand';
 import { db, importBackup, seedDatabase } from './db';
 import { defaultSettings } from './data/seed';
 import { addDays, localDate } from './logic/date';
-import type { Exercise, Feel, Session, Settings } from './types';
+import type { ActiveTimer, Exercise, Feel, Session, Settings } from './types';
 
 interface AppState {
   ready: boolean;
   sessions: Session[];
   exercises: Exercise[];
   settings: Settings;
+  activeTimer: ActiveTimer | null;
   initialize: () => Promise<void>;
   addSession: (session: Session) => Promise<void>;
   updateSession: (id: string, patch: Partial<Session>) => Promise<void>;
@@ -18,15 +19,18 @@ interface AppState {
   dismissDeload: () => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   restoreBackup: (data: unknown) => Promise<void>;
+  startTimer: (timer: Omit<ActiveTimer, 'id' | 'startedAt'>) => Promise<void>;
+  stopTimer: () => Promise<number | null>;
 }
 
 async function readAll() {
-  const [sessions, exercises, settings] = await Promise.all([
+  const [sessions, exercises, settings, activeTimer] = await Promise.all([
     db.sessions.orderBy('date').reverse().toArray(),
     db.exercises.toArray(),
-    db.settings.get('settings')
+    db.settings.get('settings'),
+    db.activeTimers.get('active')
   ]);
-  return { sessions, exercises, settings: settings ?? defaultSettings };
+  return { sessions, exercises, settings: { ...defaultSettings, ...settings }, activeTimer: activeTimer ?? null };
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -34,6 +38,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   sessions: [],
   exercises: [],
   settings: defaultSettings,
+  activeTimer: null,
   initialize: async () => {
     await seedDatabase();
     set({ ...(await readAll()), ready: true });
@@ -71,6 +76,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   restoreBackup: async (data) => {
     await importBackup(data);
+    await seedDatabase();
     set(await readAll());
+  },
+  startTimer: async (timer) => {
+    const activeTimer: ActiveTimer = { ...timer, id: 'active', startedAt: Date.now() };
+    await db.activeTimers.put(activeTimer);
+    set({ activeTimer });
+  },
+  stopTimer: async () => {
+    const timer = get().activeTimer;
+    if (!timer) return null;
+    const elapsed = Math.max(0, Math.round((Date.now() - timer.startedAt) / 10) / 100);
+    await db.activeTimers.delete('active');
+    set({ activeTimer: null });
+    return elapsed;
   }
 }));

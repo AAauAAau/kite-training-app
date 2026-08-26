@@ -6,6 +6,7 @@ import { useAppStore } from '../store';
 export function SettingsView() {
   const { settings, addBodyweight, updateSettings, restoreBackup, sessions } = useAppStore();
   const [weight, setWeight] = useState(settings.bodyweightLog.at(-1)?.kg.toString() ?? '86');
+  const [focusTag, setFocusTag] = useState('');
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,6 +48,22 @@ export function SettingsView() {
     if (days.length) void updateSettings({ hamburgDays: days });
   }
 
+  async function addFocusTag() {
+    const tag = focusTag.trim();
+    if (!tag) return;
+    if (settings.kiteFocusTags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())) {
+      return setMessage('Dieser Skill-Tag ist bereits vorhanden.');
+    }
+    await updateSettings({ kiteFocusTags: [...settings.kiteFocusTags, tag] });
+    setFocusTag('');
+    setMessage(`„${tag}“ hinzugefügt.`);
+  }
+
+  async function removeFocusTag(tag: string) {
+    await updateSettings({ kiteFocusTags: settings.kiteFocusTags.filter((value) => value !== tag) });
+    setMessage(`„${tag}“ aus der Auswahlliste entfernt.`);
+  }
+
   return (
     <main className="page settings-page">
       <header className="page-header"><div><span className="eyebrow">Lokal auf diesem Gerät</span><h1>Einstellungen</h1></div></header>
@@ -66,6 +83,19 @@ export function SettingsView() {
           {[['Mo', 1], ['Di', 2], ['Mi', 3], ['Do', 4], ['Fr', 5], ['Sa', 6], ['So', 0]].map(([label, day]) => (
             <button key={day} className={settings.hamburgDays.includes(Number(day)) ? 'selected' : ''} onClick={() => toggleHamburgDay(Number(day))}>{label}</button>
           ))}
+        </div>
+      </section>
+      <section className="settings-card card">
+        <span className="eyebrow">Kite-Log</span><h2>Skill-Tags</h2>
+        <p>Diese Tags stehen in den optionalen Kite-Details zur Auswahl. Bereits geloggte Tags bleiben beim Entfernen erhalten.</p>
+        <div className="focus-tag-list">
+          {settings.kiteFocusTags.map((tag) => (
+            <span key={tag}>{tag}<button aria-label={`${tag} entfernen`} onClick={() => void removeFocusTag(tag)}>×</button></span>
+          ))}
+        </div>
+        <div className="focus-tag-add">
+          <input value={focusTag} maxLength={40} placeholder="Neuer Trick" aria-label="Neuer Skill-Tag" onChange={(event) => setFocusTag(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addFocusTag(); }} />
+          <button className="secondary" onClick={() => void addFocusTag()}>Hinzufügen</button>
         </div>
       </section>
       <section className="settings-card card">

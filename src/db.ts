@@ -1,11 +1,12 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { defaultSettings, exercises as seedExercises } from './data/seed';
-import type { BackupData, Exercise, Session, Settings } from './types';
+import type { ActiveTimer, BackupData, Exercise, Session, Settings } from './types';
 
 class KiteDatabase extends Dexie {
   sessions!: EntityTable<Session, 'id'>;
   exercises!: EntityTable<Exercise, 'id'>;
   settings!: EntityTable<Settings, 'id'>;
+  activeTimers!: EntityTable<ActiveTimer, 'id'>;
 
   constructor() {
     super('kite-strength-tracker');
@@ -13,6 +14,12 @@ class KiteDatabase extends Dexie {
       sessions: 'id, date, type, createdAt',
       exercises: 'id, category',
       settings: 'id'
+    });
+    this.version(2).stores({
+      sessions: 'id, date, type, createdAt',
+      exercises: 'id, category',
+      settings: 'id',
+      activeTimers: 'id'
     });
   }
 }
@@ -27,7 +34,7 @@ export async function seedDatabase(): Promise<void> {
 }
 
 export async function exportBackup(): Promise<BackupData> {
-  const settings = (await db.settings.get('settings')) ?? defaultSettings;
+  const settings = { ...defaultSettings, ...(await db.settings.get('settings')) };
   return {
     version: 1,
     exportedAt: new Date().toISOString(),

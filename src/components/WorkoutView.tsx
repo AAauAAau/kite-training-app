@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { boardOffStages, mobilityItems, templates } from '../data/seed';
+import { boardOffStages, mobilityChecklists, mobilityItems, templates } from '../data/seed';
 import { localDate } from '../logic/date';
-import { lastLoggedSet, nextTarget, sprintPrescription, sprintWarnings, sprintWeek } from '../logic/training';
+import { lastLoggedSet, nextTarget, sprintPrescription, sprintWarnings, sprintWeek, strengthWarnings } from '../logic/training';
 import { useAppStore } from '../store';
 import type { Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon } from './Icons';
+import { primeTimerAudio } from './TimerDock';
 
 interface WorkoutViewProps {
   onSaved: (sessionId: string) => void;
@@ -23,6 +24,9 @@ type Draft = {
   ringsAreas?: RingsArea[];
   ringsSkills?: RingsSkill[];
   sourceApp?: 'die-ringe';
+  compactCoreToWarmup?: boolean;
+  activityName?: string;
+  manualLoad?: number;
 };
 
 const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = [
@@ -40,7 +44,7 @@ const ringsSkillOptions: { value: RingsSkill; label: string }[] = [
 ];
 
 export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
-  const { sessions, exercises, addSession } = useAppStore();
+  const { sessions, exercises, addSession, startTimer } = useAppStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [boardOffPicker, setBoardOffPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,7 +62,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           sec: previous?.sec ?? item.defaultSec,
           distanceM: previous?.distanceM ?? item.defaultDistanceM,
           perSide: exercise?.perSide,
-          successful: true
+          successful: undefined
         }))
       };
     });
@@ -95,27 +99,50 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     });
   }
 
+  function startOther() {
+    setDraft({
+      type: 'OTHER', title: 'Andere Aktivität', entries: [], exerciseNotes: {}, mobilityDone: [], note: '',
+      activityName: '', manualLoad: 1.5
+    });
+  }
+
   function updateSet(entryIndex: number, setIndex: number, next: SetLog) {
     if (!draft) return;
+    const previous = draft.entries[entryIndex]?.sets[setIndex];
+    const exercise = exercises.find((item) => item.id === draft.entries[entryIndex]?.exerciseId);
     const entries = draft.entries.map((entry, currentEntry) => currentEntry === entryIndex
       ? { ...entry, sets: entry.sets.map((set, currentSet) => currentSet === setIndex ? next : set) }
       : entry
     );
     setDraft({ ...draft, entries });
+    const restSec = exercise?.restSec ?? (exercise?.category === 'mobility' ? 0 : 90);
+    if (previous?.successful !== true && next.successful === true && restSec > 0) {
+      primeTimerAudio();
+      void startTimer({
+        mode: 'countdown', kind: 'rest', label: `${exercise?.name ?? 'Übung'} · Pause`,
+        sourceId: `rest-${exercise?.id}`, defaultSec: restSec, endTimestamp: Date.now() + restSec * 1000
+      });
+    }
   }
 
   async function save() {
     if (!draft) return;
-    if (draft.type === 'RINGS' && !draft.ringsAreas?.length) return;
+    if (draft.type === 'RINGS' && draft.sourceApp === 'die-ringe' && !draft.ringsAreas?.length) return;
     if (draft.type === 'SPRINT') {
       const warnings = sprintWarnings(localDate(), sessions);
       if (warnings.length && !window.confirm(`${warnings.join('\n\n')}\n\nTrotzdem speichern?`)) return;
     }
+    const backWarnings = strengthWarnings(draft.type, localDate(), sessions);
+    if (backWarnings.length && !window.confirm(`${backWarnings.join('\n\n')}\n\nTrotzdem speichern?`)) return;
     setSaving(true);
+    const entries = draft.compactCoreToWarmup
+      ? draft.entries.filter((entry) => entry.exerciseId !== 'bird-dog' && entry.exerciseId !== 'side-plank')
+      : draft.entries;
     const session: Session = {
-      id: crypto.randomUUID(), date: localDate(), type: draft.type, entries: draft.entries,
+      id: crypto.randomUUID(), date: localDate(), type: draft.type, entries,
       mobilityDone: draft.mobilityDone, note: draft.note.trim() || undefined,
       durationMin: draft.durationMin, intensity: draft.intensity,
+      activityName: draft.activityName?.trim() || undefined, manualLoad: draft.manualLoad,
       ringsAreas: draft.ringsAreas, ringsSkills: draft.ringsSkills,
       sourceApp: draft.sourceApp, createdAt: Date.now()
     };
@@ -147,27 +174,33 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     <main className="page workout-menu">
       <header className="page-header"><div><span className="eyebrow">Was passt heute?</span><h1>Training starten</h1></div></header>
       <div className="template-list">
+        <div className="template-group-heading"><span className="eyebrow">Trainingspläne</span><small>Mit Übungen und Satzvorgaben</small></div>
         {templates.map((template) => (
           <button className="template-card card" key={template.type} onClick={() => startTemplate(template)}>
             <span className={`template-letter type-${template.type.toLowerCase()}`}>{template.type === 'RINGS' ? 'R' : template.type}</span>
-            <span><strong>{template.title}</strong><small>{template.subtitle}</small></span><ChevronIcon />
+            <span><strong>{template.title}</strong><small>{template.subtitle} · Last {template.type === 'A' || template.type === 'B' ? '2,0' : '1,5'}</small></span><ChevronIcon />
           </button>
         ))}
+        <div className="template-group-heading secondary-group"><span className="eyebrow">Aktivität erfassen</span><small>Schnell und ohne Trainingsplan loggen</small></div>
         <button className="template-card rings-card card" onClick={startRings}>
           <span className="template-letter type-rings">R</span>
-          <span><strong>Die Ringe</strong><small>Bereiche, Skills & Belastung kompakt loggen</small></span><ChevronIcon />
+          <span><strong>Die Ringe</strong><small>Bereiche & Skills · Last 1,0–2,0</small></span><ChevronIcon />
         </button>
         <button className="template-card sprint-card card" onClick={startSprint}>
           <span className="template-letter type-sprint">S</span>
-          <span><strong>Sprint · Woche {week}</strong><small>6×{sprintPrescription(week).distance} m · {sprintPrescription(week).intensity}</small></span><ChevronIcon />
+          <span><strong>Sprint · Woche {week}</strong><small>6×{sprintPrescription(week).distance} m · {sprintPrescription(week).intensity} · Last 2,0</small></span><ChevronIcon />
         </button>
         <button className="template-card boardoff-card card" onClick={() => setBoardOffPicker(true)}>
           <span className="template-letter type-board_off">B</span>
-          <span><strong>Board-Off Drills</strong><small>Land-Progression · Stufe 0–4</small></span><ChevronIcon />
+          <span><strong>Board-Off Drills</strong><small>Land-Progression · Stufe 0–4 · Last 1,0</small></span><ChevronIcon />
         </button>
         <button className="template-card padel-card card" onClick={startPadel}>
           <span className="template-letter type-padel">P</span>
-          <span><strong>Padel Tennis</strong><small>Aktivitätslast 1.5 · Dauer optional</small></span><ChevronIcon />
+          <span><strong>Padel Tennis</strong><small>Dauer optional · Last 1,5</small></span><ChevronIcon />
+        </button>
+        <button className="template-card other-card card" onClick={startOther}>
+          <span className="template-letter type-other">+</span>
+          <span><strong>Andere Aktivität</strong><small>Joggen, Schwimmen etc. · Last frei</small></span><ChevronIcon />
         </button>
       </div>
       <button className="text-button cancel-link" onClick={onCancel}>Abbrechen</button>
@@ -176,36 +209,43 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
   const currentTemplate = templates.find((template) => template.type === draft.type);
   const prescription = draft.type === 'SPRINT' ? sprintPrescription(week) : null;
+  const externalRings = draft.type === 'RINGS' && draft.sourceApp === 'die-ringe';
+  const preSession = mobilityChecklists.find((template) => template.variant === 'pre-session')!;
+  const visibleEntryCount = draft.compactCoreToWarmup
+    ? draft.entries.filter((entry) => entry.exerciseId !== 'bird-dog' && entry.exerciseId !== 'side-plank').length
+    : draft.entries.length;
   return (
     <main className="page workout-active">
       <header className="sticky-workout-header">
         <button className="icon-button" onClick={() => setDraft(null)} aria-label="Zurück">‹</button>
         <div><span className="eyebrow">Heute</span><h1>{draft.title ?? currentTemplate?.title ?? `Sprint · Woche ${week}`}</h1></div>
-        <span className="exercise-count">{draft.type === 'RINGS' ? draft.ringsAreas?.length ?? 0 : draft.entries.length}</span>
+        <span className="exercise-count">{externalRings ? draft.ringsAreas?.length ?? 0 : visibleEntryCount}</span>
       </header>
 
       {draft.type === 'SPRINT' && (
         <>
           <section className="sprint-safety"><AlertIcon /><strong>Zwicken in der Oberschenkelrückseite → sofort abbrechen, nicht auslaufen.</strong></section>
           <section className="warmup card"><span className="eyebrow">10 min Warm-up</span><p>Skippings · A-Läufe · Anläufe</p><strong>6×{prescription?.distance} m @ {prescription?.intensity}</strong></section>
+          <SprintStats sessions={sessions} entries={draft.entries} />
         </>
       )}
 
-      {(draft.type === 'A' || draft.type === 'B') && (
+      {(draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
         <section className="mobility-card card">
-          <div><span className="eyebrow">Vor der ersten Übung</span><h3>Aufwärmen</h3></div>
-          {[
-            ['warmup-cardio', '5 min locker Bike, Rudergerät oder Laufband'],
-            ['warmup-movement', '10 Squats ohne Gewicht + 10 Hip Hinges'],
-            ['warmup-ramp', '2–4 steigende Aufwärmsätze der ersten Übung']
-          ].map(([id, label]) => {
+          <div><span className="eyebrow">Vor der ersten Übung · {preSession.durationMin} min</span><h3>{preSession.title}</h3></div>
+          {preSession.items.map(({ id, label }) => {
             const checked = draft.mobilityDone.includes(id);
             return <button key={id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((value) => value !== id) : [...draft.mobilityDone, id] })}><i>{checked && <CheckIcon />}</i><span>{label}</span></button>;
           })}
+          {draft.type === 'B' && (
+            <button className={draft.compactCoreToWarmup ? 'checked' : ''} onClick={() => setDraft({ ...draft, compactCoreToWarmup: !draft.compactCoreToWarmup })}>
+              <i>{draft.compactCoreToWarmup && <CheckIcon />}</i><span>Bird Dog + Side Plank hierher verschieben<small>Optional, falls Tag B sonst über 60 min dauert</small></span>
+            </button>
+          )}
         </section>
       )}
 
-      {draft.type === 'RINGS' && (
+      {externalRings && (
         <RingsLogger draft={draft} update={setDraft} />
       )}
 
@@ -219,7 +259,6 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
             <li>Matte oder Teppich unter dem Board</li>
             <li>Füße hängen nur knapp über dem Boden</li>
           </ul>
-          <strong>Vorderer Fuß immer zuerst.</strong>
         </section>
       )}
 
@@ -236,8 +275,28 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         </section>
       )}
 
-      {draft.type !== 'RINGS' && <div className="exercise-stack">
+      {draft.type === 'OTHER' && (
+        <section className="other-options card">
+          <span className="eyebrow">Freier Eintrag</span>
+          <label>
+            <span>Aktivität</span>
+            <input autoFocus value={draft.activityName ?? ''} onChange={(event) => setDraft({ ...draft, activityName: event.target.value })} placeholder="z. B. Joggen" />
+          </label>
+          <label>
+            <span>Dauer · optional</span>
+            <div className="other-duration"><input type="number" inputMode="numeric" min="0" value={draft.durationMin ?? ''} onChange={(event) => setDraft({ ...draft, durationMin: event.target.value === '' ? undefined : Number(event.target.value) })} placeholder="45" /><small>min</small></div>
+          </label>
+          <label>
+            <span>Aktivitätslast <strong>{(draft.manualLoad ?? 1.5).toFixed(1)}</strong></span>
+            <input type="range" min="0.5" max="3" step="0.5" value={draft.manualLoad ?? 1.5} onChange={(event) => setDraft({ ...draft, manualLoad: Number(event.target.value) })} />
+            <small>0,5 = sehr locker · 1,5 = normal · 3,0 = sehr hart</small>
+          </label>
+        </section>
+      )}
+
+      {!externalRings && <div className="exercise-stack">
         {draft.entries.map((entry, entryIndex) => {
+          if (draft.compactCoreToWarmup && (entry.exerciseId === 'bird-dog' || entry.exerciseId === 'side-plank')) return null;
           const exercise = exercises.find((item) => item.id === entry.exerciseId);
           if (!exercise) return null;
           const target = nextTarget(exercise.id, sessions, exercises);
@@ -256,7 +315,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       )}
 
       <label className="note-field card"><span>Notiz · optional</span><textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Technik, Schmerz, Variante …" rows={2} /></label>
-      <div className="workout-actions"><button className="primary" onClick={save} disabled={saving || (draft.type === 'RINGS' && !draft.ringsAreas?.length)}>{saving ? 'Speichert …' : draft.type === 'RINGS' && !draft.ringsAreas?.length ? 'Bereich auswählen' : 'Einheit abschließen'}</button></div>
+      <div className="workout-actions"><button className="primary" onClick={save} disabled={saving || (externalRings && !draft.ringsAreas?.length) || (draft.type === 'OTHER' && !draft.activityName?.trim())}>{saving ? 'Speichert …' : externalRings && !draft.ringsAreas?.length ? 'Bereich auswählen' : draft.type === 'OTHER' && !draft.activityName?.trim() ? 'Aktivität benennen' : 'Einheit abschließen'}</button></div>
     </main>
   );
 }
@@ -360,25 +419,116 @@ function ExerciseEditor({ exercise, entry, target, note, update }: { exercise: E
         {target?.kg !== undefined && <span className="target">Ziel {target.kg} kg</span>}
       </div>
       <div className="set-table">
-        <div className={`set-labels ${hasWeight ? '' : 'no-weight'}`}><span>Satz</span>{hasWeight && <span>kg</span>}<span>{exercise.metric === 'time' ? 'Sek.' : exercise.metric === 'distance' || exercise.id === 'farmers-carry' ? 'Meter' : 'Wdh.'}</span><span>OK</span></div>
-        {entry.sets.map((set, index) => <SetEditor key={index} index={index} metric={exercise.metric} set={set} update={(value) => update(index, value)} />)}
+        <div className={`set-labels ${hasWeight ? '' : 'no-weight'}`}><span>Satz</span>{hasWeight && <span>kg</span>}<span>{exercise.metric === 'time' ? 'Sek.' : exercise.metric === 'distance' || exercise.id === 'suitcase-carry' ? 'Meter' : 'Wdh.'}</span><span>OK</span></div>
+        {entry.sets.map((set, index) => <SetEditor key={index} index={index} exercise={exercise} set={set} update={(value) => update(index, value)} />)}
       </div>
     </section>
   );
 }
 
-function SetEditor({ index, metric, set, update }: { index: number; metric: Exercise['metric']; set: SetLog; update: (set: SetLog) => void }) {
-  const hasWeight = metric === 'weight_reps';
-  const secondaryKey = metric === 'time' ? 'sec' : metric === 'distance' ? 'distanceM' : 'reps';
+function SetEditor({ index, exercise, set, update }: { index: number; exercise: Exercise; set: SetLog; update: (set: SetLog) => void }) {
+  const hasWeight = exercise.metric === 'weight_reps';
+  const secondaryKey = exercise.metric === 'time' ? 'sec' : exercise.metric === 'distance' ? 'distanceM' : 'reps';
   function number(key: 'kg' | 'reps' | 'sec' | 'distanceM', value: string) {
     update({ ...set, [key]: value === '' ? undefined : Number(value) });
   }
   return (
-    <div className={`set-row ${hasWeight ? '' : 'no-weight'}`}>
-      <strong>{index + 1}</strong>
-      {hasWeight && <input inputMode="decimal" aria-label={`Satz ${index + 1} Kilogramm`} value={set.kg ?? ''} placeholder="–" onChange={(event) => number('kg', event.target.value)} />}
-      <input inputMode="decimal" aria-label={`Satz ${index + 1} Wert`} value={set[secondaryKey] ?? ''} placeholder="–" onChange={(event) => number(secondaryKey, event.target.value)} />
-      <button type="button" className={set.successful !== false ? 'set-success' : 'set-failed'} onClick={() => update({ ...set, successful: set.successful === false })} aria-label={set.successful !== false ? 'Erfolgreich' : 'Fehlversuch'}>{set.successful !== false ? <CheckIcon /> : '×'}</button>
+    <div className="set-with-timer">
+      <div className={`set-row ${hasWeight ? '' : 'no-weight'}`}>
+        <strong>{index + 1}</strong>
+        {hasWeight && <input inputMode="decimal" aria-label={`Satz ${index + 1} Kilogramm`} value={set.kg ?? ''} placeholder="–" onChange={(event) => number('kg', event.target.value)} />}
+        <input inputMode="decimal" aria-label={`Satz ${index + 1} Wert`} value={set[secondaryKey] ?? ''} placeholder="–" onChange={(event) => number(secondaryKey, event.target.value)} />
+        <button
+          type="button"
+          className={set.successful === true ? 'set-success' : set.successful === false ? 'set-failed' : 'set-pending'}
+          onClick={() => update({ ...set, successful: set.successful === undefined ? true : set.successful === true ? false : undefined })}
+          aria-label={set.successful === true ? 'Erfolgreich geloggt' : set.successful === false ? 'Fehlversuch' : 'Satz loggen'}
+        >{set.successful === true ? <CheckIcon /> : set.successful === false ? '×' : '○'}</button>
+      </div>
+      {(exercise.metric === 'time' || exercise.timer) && <SetTimerControl exercise={exercise} index={index} set={set} update={update} />}
     </div>
+  );
+}
+
+function SetTimerControl({ exercise, index, set, update }: { exercise: Exercise; index: number; set: SetLog; update: (set: SetLog) => void }) {
+  const { activeTimer, startTimer, stopTimer } = useAppStore();
+  const config = exercise.timer ?? { mode: 'countdown' as const, defaultSec: set.sec ?? 30 };
+  const sourceId = `${exercise.id}-${index}`;
+  const active = activeTimer?.sourceId === sourceId;
+  const seconds = set.sec ?? config.defaultSec ?? 30;
+
+  async function control() {
+    primeTimerAudio();
+    if (active) {
+      const elapsed = await stopTimer();
+      if (config.mode === 'countup' && elapsed !== null) update({ ...set, sec: elapsed });
+      return;
+    }
+    const duration = config.mode === 'pace' ? config.defaultSec ?? 4 : seconds;
+    await startTimer({
+      mode: config.mode,
+      kind: 'exercise',
+      label: `${exercise.name} · Satz ${index + 1}`,
+      sourceId,
+      defaultSec: duration,
+      endTimestamp: config.mode === 'countup' ? undefined : Date.now() + duration * 1000
+    });
+  }
+
+  const label = active
+    ? config.mode === 'countup' ? 'Stoppen & Zeit übernehmen' : 'Timer stoppen'
+    : config.mode === 'countup'
+      ? set.sec !== undefined ? 'Erneut messen' : 'Stoppuhr starten'
+      : config.mode === 'pace' ? `${seconds} s Tempo starten` : `${seconds} s Countdown`;
+  return (
+    <div className={`set-timer-controls ${exercise.metric !== 'time' && config.mode === 'countup' ? 'with-input' : ''}`}>
+      {exercise.metric !== 'time' && config.mode === 'countup' && (
+        <label className="direct-time-input">
+          <span>Zeit</span>
+          <input
+            inputMode="decimal"
+            type="number"
+            min="0"
+            step="0.01"
+            aria-label={`Satz ${index + 1} Zeit in Sekunden`}
+            value={set.sec ?? ''}
+            placeholder="Sek."
+            onChange={(event) => update({ ...set, sec: event.target.value === '' ? undefined : Number(event.target.value) })}
+          />
+        </label>
+      )}
+      <button type="button" className={`set-timer-button ${active ? 'active' : ''}`} onClick={() => void control()}>{label}</button>
+    </div>
+  );
+}
+
+function SprintStats({ sessions, entries }: { sessions: Session[]; entries: Entry[] }) {
+  const sprintSets = entries.find((entry) => entry.exerciseId === 'sprint')?.sets ?? [];
+  const distance = sprintSets.find((set) => set.distanceM)?.distanceM;
+  const currentTimes = sprintSets.flatMap((set) => typeof set.sec === 'number' && set.sec > 0 ? [set.sec] : []);
+  const history = sessions
+    .filter((session) => session.type === 'SPRINT')
+    .flatMap((session) => session.entries.find((entry) => entry.exerciseId === 'sprint')?.sets ?? [])
+    .filter((set) => set.distanceM === distance && typeof set.sec === 'number' && set.sec > 0);
+  const latest = [...sessions]
+    .filter((session) => session.type === 'SPRINT' && session.entries.some((entry) =>
+      entry.exerciseId === 'sprint' && entry.sets.some((set) => set.distanceM === distance && typeof set.sec === 'number' && set.sec > 0)
+    ))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)[0];
+  const latestTimes = latest?.entries.find((entry) => entry.exerciseId === 'sprint')?.sets
+    .flatMap((set) => set.distanceM === distance && typeof set.sec === 'number' && set.sec > 0 ? [set.sec] : []) ?? [];
+  const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+  const value = (seconds: number | undefined) => seconds === undefined ? '–' : `${seconds.toFixed(2)} s`;
+
+  return (
+    <section className="sprint-stats card">
+      <div><span className="eyebrow">{distance ?? '–'} m Statistik</span><h3>Zeiten</h3></div>
+      <div className="sprint-stat-grid">
+        <span><small>Heute schnellste</small><strong>{value(currentTimes.length ? Math.min(...currentTimes) : undefined)}</strong></span>
+        <span><small>Heute Schnitt</small><strong>{value(currentTimes.length ? average(currentTimes) : undefined)}</strong></span>
+        <span><small>Letzte Einheit</small><strong>{value(latestTimes.length ? average(latestTimes) : undefined)}</strong></span>
+        <span><small>Bestzeit</small><strong>{value(history.length ? Math.min(...history.map((set) => set.sec!)) : undefined)}</strong></span>
+      </div>
+    </section>
   );
 }

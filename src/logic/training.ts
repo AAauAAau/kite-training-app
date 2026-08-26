@@ -1,5 +1,8 @@
 import type { Exercise, PlannedSession, Session, SetLog, Settings } from '../types';
-import { addDays, localDate } from './date.ts';
+import { addDays, localDate, startOfWeek } from './date.ts';
+
+export const lowerBackWarning = 'Rücken ist von gestern vorbelastet — Gewicht runter oder Tag B vorziehen.';
+export const kbWithoutStrengthWarning = 'Diese Woche keine schwere Beinarbeit — Pop und Landung kommen aus Tag A/B.';
 
 export function sessionLoad(session: Session): number {
   switch (session.type) {
@@ -7,6 +10,7 @@ export function sessionLoad(session: Session): number {
     case 'RINGS': return session.intensity === 'hard' ? 2 : session.intensity === 'chill' ? 1 : 1.5;
     case 'KB': case 'PADEL': return 1.5;
     case 'BOARD_OFF': return 1;
+    case 'OTHER': return Math.min(3, Math.max(0.5, session.manualLoad ?? 1.5));
     case 'KITE': return session.intensity === 'hard' ? 3 : session.intensity === 'chill' ? 1 : 2;
     case 'MOBILITY': return 0;
   }
@@ -58,6 +62,7 @@ export function nextTarget(
   exercises: Exercise[]
 ): SetLog | null {
   const exercise = exercises.find((item) => item.id === exerciseId);
+  if (exercise?.incrementKg === 0) return null;
   const increment = exercise?.incrementKg ?? 2.5;
   const attempts = [...sessions]
     .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
@@ -101,6 +106,23 @@ export function sprintWarnings(date: string, sessions: Session[]): string[] {
   return warnings;
 }
 
+export function strengthWarnings(type: Session['type'], date: string, sessions: Session[]): string[] {
+  if (type !== 'A') return [];
+  return sessions.some((session) =>
+    session.date === addDays(date, -1) && session.type === 'KITE' && session.intensity === 'hard'
+  ) ? [lowerBackWarning] : [];
+}
+
+export function weeklyStrengthWarning(date: string, sessions: Session[]): string | null {
+  const firstDay = startOfWeek(date);
+  const lastDay = addDays(firstDay, 6);
+  const week = sessions.filter((session) => session.date >= firstDay && session.date <= lastDay);
+  return week.some((session) => session.type === 'KB') &&
+    !week.some((session) => session.type === 'A' || session.type === 'B')
+    ? kbWithoutStrengthWarning
+    : null;
+}
+
 export function schedule(weekStart: string, sessions: Session[], settings: Settings): PlannedSession[] {
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const hamburgDates = days.filter((date) => settings.hamburgDays.includes(new Date(`${date}T12:00:00`).getDay()));
@@ -108,11 +130,21 @@ export function schedule(weekStart: string, sessions: Session[], settings: Setti
     Boolean(date) && all.indexOf(date) === index
   );
   const flensburgDates = days.filter((date) => !hamburgDates.includes(date));
+  const homeDates = flensburgDates.length
+    ? flensburgDates
+    : days.filter((date) => !strengthDates.includes(date));
   const planned: Omit<PlannedSession, 'overriddenByKite' | 'completed'>[] = [];
   if (strengthDates[0]) planned.push({ date: strengthDates[0], type: 'A', location: 'Gym' });
   if (strengthDates[1]) planned.push({ date: strengthDates[1], type: 'B', location: 'Gym' });
-  const flexDay = flensburgDates.find((date) => date > (strengthDates.at(-1) ?? weekStart)) ?? flensburgDates[0];
-  if (flexDay) planned.push({ date: flexDay, type: sprintWeek(sessions) <= 6 ? 'SPRINT' : 'RINGS', location: 'Zuhause' });
+  const flexDay = homeDates.find((date) => date > (strengthDates.at(-1) ?? weekStart)) ?? homeDates[0] ?? days.at(-1);
+  const weekEnd = addDays(weekStart, 6);
+  const loggedAlternative = sessions.find((session) =>
+    session.date >= weekStart && session.date <= weekEnd && (session.type === 'KB' || session.type === 'RINGS')
+  );
+  const circuitDay = loggedAlternative?.date ?? flexDay;
+  if (circuitDay) planned.push({ date: circuitDay, type: loggedAlternative?.type === 'KB' ? 'KB' : 'RINGS', location: 'Zuhause' });
+  const sprintDay = homeDates.find((date) => date !== circuitDay);
+  if (sprintDay && sprintWeek(sessions) <= 6) planned.push({ date: sprintDay, type: 'SPRINT', location: 'Zuhause' });
   return planned
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((item) => ({

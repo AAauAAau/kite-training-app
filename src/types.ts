@@ -1,9 +1,17 @@
-export type SessionType = 'A' | 'B' | 'RINGS' | 'KB' | 'SPRINT' | 'MOBILITY' | 'KITE' | 'PADEL' | 'BOARD_OFF';
+export type SessionType = 'A' | 'B' | 'RINGS' | 'KB' | 'SPRINT' | 'MOBILITY' | 'KITE' | 'PADEL' | 'BOARD_OFF' | 'OTHER';
 export type Feel = 'good' | 'ok' | 'wrecked';
 export type TrainingIntensity = 'chill' | 'normal' | 'hard';
 export type KiteIntensity = TrainingIntensity;
+export type KiteWind = 'leicht' | 'mittel' | 'stark';
+export type KiteBoard = 'twintip' | 'foil' | 'directional';
 export type RingsArea = 'mobility' | 'upper' | 'legs' | 'skills';
 export type RingsSkill = 'ring-muscle-up' | 'l-sit' | 'side-split' | 'pistol-squat';
+
+export interface KiteDetails {
+  wind?: KiteWind;
+  board?: KiteBoard;
+  focus?: string[];
+}
 
 export interface SetLog {
   kg?: number;
@@ -27,10 +35,13 @@ export interface Session {
   feel?: Feel;
   durationMin?: number;
   intensity?: TrainingIntensity;
+  kite?: KiteDetails;
   ringsAreas?: RingsArea[];
   ringsSkills?: RingsSkill[];
   sourceApp?: 'die-ringe';
   note?: string;
+  activityName?: string;
+  manualLoad?: number;
   mobilityDone?: string[];
   createdAt: number;
 }
@@ -42,7 +53,20 @@ export interface Exercise {
   metric: 'weight_reps' | 'reps' | 'time' | 'distance';
   incrementKg?: number;
   perSide?: boolean;
+  timer?: { mode: 'countdown' | 'countup' | 'pace'; defaultSec?: number };
+  restSec?: number;
   youtubeQuery?: string;
+}
+
+export interface ActiveTimer {
+  id: 'active';
+  mode: 'countdown' | 'countup' | 'pace';
+  kind: 'exercise' | 'rest';
+  label: string;
+  sourceId?: string;
+  startedAt: number;
+  endTimestamp?: number;
+  defaultSec?: number;
 }
 
 export interface BodyweightLog {
@@ -56,6 +80,8 @@ export interface Settings {
   deloadDismissedUntil?: string;
   loadThreshold7d: number;
   hamburgDays: number[];
+  timerAudioEnabled?: boolean;
+  kiteFocusTags: string[];
 }
 
 export interface TemplateExercise {
@@ -68,7 +94,7 @@ export interface TemplateExercise {
 }
 
 export interface SessionTemplate {
-  type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'BOARD_OFF'>;
+  type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'KB' | 'BOARD_OFF'>;
   title: string;
   subtitle: string;
   exercises: TemplateExercise[];
@@ -83,10 +109,23 @@ export interface BoardOffStage {
 
 export interface PlannedSession {
   date: string;
-  type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'SPRINT'>;
+  type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'KB' | 'SPRINT'>;
   location: 'Gym' | 'Zuhause';
   overriddenByKite: boolean;
   completed: boolean;
+}
+
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  purpose?: string;
+}
+
+export interface MobilityChecklistTemplate {
+  variant: 'pre-session' | 'morning';
+  title: string;
+  durationMin: number;
+  items: ChecklistItem[];
 }
 
 export interface BackupData {
