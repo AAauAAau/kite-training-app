@@ -15,18 +15,18 @@ describe('sessionLoad', () => {
   it.each([
     ['A', 2], ['B', 2], ['SPRINT', 2], ['RINGS', 1.5], ['KB', 1.5], ['PADEL', 1.5], ['BOARD_OFF', 1], ['MOBILITY', 0], ['OTHER', 1.5]
   ] as const)('%s = %s', (type, load) => expect(sessionLoad(session({ type }))).toBe(load));
-  it.each([['chill', 1], ['normal', 2], ['hard', 3]] as const)('KITE %s = %s', (intensity, load) =>
+  it.each([['chill', 1], ['normal', 1.5], ['hard', 2]] as const)('KITE %s = %s', (intensity, load) =>
     expect(sessionLoad(session({ type: 'KITE', intensity }))).toBe(load));
   it('does not derive kite load from wind strength', () => {
     expect(sessionLoad(session({ type: 'KITE', intensity: 'chill', kite: { wind: 'stark' } }))).toBe(1);
-    expect(sessionLoad(session({ type: 'KITE', intensity: 'hard', kite: { wind: 'leicht' } }))).toBe(3);
+    expect(sessionLoad(session({ type: 'KITE', intensity: 'hard', kite: { wind: 'leicht' } }))).toBe(2);
   });
   it.each([['chill', 1], ['normal', 1.5], ['hard', 2]] as const)('RINGS %s = %s', (intensity, load) =>
     expect(sessionLoad(session({ type: 'RINGS', intensity }))).toBe(load));
   it('keeps old RINGS sessions at 1.5', () => expect(sessionLoad(session({ type: 'RINGS' }))).toBe(1.5));
   it('uses the manually selected load for other activities', () => expect(sessionLoad(session({ type: 'OTHER', manualLoad: 2.5 }))).toBe(2.5));
   it('does not add load for an attached hip routine', () => {
-    expect(sessionLoad(session({ type: 'KITE', intensity: 'normal', mobilityDone: ['hip-flexor-stretch', 'hip-glute-bridge'] }))).toBe(2);
+    expect(sessionLoad(session({ type: 'KITE', intensity: 'normal', mobilityDone: ['hip-flexor-stretch', 'hip-glute-bridge'] }))).toBe(1.5);
   });
 });
 
@@ -46,13 +46,13 @@ describe('rollingLoad7d', () => {
       session({ date: '2026-08-25', type: 'KITE', intensity: 'chill' }),
       session({ date: '2026-08-25', type: 'KITE', intensity: 'hard' })
     ];
-    expect(rollingLoad7d(sessions, '2026-08-25')).toBe(4);
+    expect(rollingLoad7d(sessions, '2026-08-25')).toBe(3);
   });
 
   it('recomputes after a session date is edited', () => {
     const original = session({ date: '2026-08-18', type: 'KITE', intensity: 'hard' });
     expect(rollingLoad7d([original], '2026-08-25')).toBe(0);
-    expect(rollingLoad7d([{ ...original, date: '2026-08-25' }], '2026-08-25')).toBe(3);
+    expect(rollingLoad7d([{ ...original, date: '2026-08-25' }], '2026-08-25')).toBe(2);
   });
 });
 
@@ -62,7 +62,7 @@ describe('deloadDue', () => {
     expect(deloadDue(sessions, settings, '2026-08-25').due).toBe(true);
   });
   it('triggers above the configured rolling load threshold', () => {
-    const sessions = [1, 2, 3, 4].map((day) => session({ date: `2026-08-2${day}`, type: 'KITE', intensity: 'hard' }));
+    const sessions = ['19', '20', '21', '22', '23', '24'].map((day) => session({ date: `2026-08-${day}`, type: 'KITE', intensity: 'hard' }));
     expect(deloadDue(sessions, settings, '2026-08-25').reason).toContain('12.0');
   });
   it('does not trigger at the exact threshold', () => {

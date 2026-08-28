@@ -11,7 +11,7 @@ export function sessionLoad(session: Session): number {
     case 'KB': case 'PADEL': return 1.5;
     case 'BOARD_OFF': return 1;
     case 'OTHER': return Math.min(3, Math.max(0.5, session.manualLoad ?? 1.5));
-    case 'KITE': return session.intensity === 'hard' ? 3 : session.intensity === 'chill' ? 1 : 2;
+    case 'KITE': return session.intensity === 'hard' ? 2 : session.intensity === 'chill' ? 1 : 1.5;
     case 'MOBILITY': return 0;
   }
 }
