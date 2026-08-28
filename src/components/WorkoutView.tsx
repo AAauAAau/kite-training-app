@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { boardOffStages, mobilityChecklists, mobilityItems, templates } from '../data/seed';
-import { localDate } from '../logic/date';
+import { formatShortDate, localDate } from '../logic/date';
 import { lastLoggedSet, nextTarget, sprintPrescription, sprintWarnings, sprintWeek, strengthWarnings } from '../logic/training';
 import { useAppStore } from '../store';
 import type { Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon } from './Icons';
+import { SessionDatePicker } from './SessionDatePicker';
 import { primeTimerAudio } from './TimerDock';
 
 interface WorkoutViewProps {
-  onSaved: (sessionId: string) => void;
+  onSaved: (session: Session) => void;
   onCancel: () => void;
 }
 
@@ -48,12 +49,14 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [boardOffPicker, setBoardOffPicker] = useState(false);
   const [saving, setSaving] = useState(false);
-  const week = sprintWeek(sessions);
+  const [sessionDate, setSessionDate] = useState(localDate());
+  const sessionHistory = sessions.filter((session) => session.date <= sessionDate);
+  const week = sprintWeek(sessionHistory);
 
   function startTemplate(template: SessionTemplate) {
     const entries = template.exercises.map((item) => {
       const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
-      const previous = lastLoggedSet(item.exerciseId, sessions);
+      const previous = lastLoggedSet(item.exerciseId, sessionHistory);
       return {
         exerciseId: item.exerciseId,
         sets: Array.from({ length: item.sets }, () => ({
@@ -106,6 +109,12 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     });
   }
 
+  function startMobility() {
+    setDraft({
+      type: 'MOBILITY', title: 'Mobility', entries: [], exerciseNotes: {}, mobilityDone: [], note: ''
+    });
+  }
+
   function updateSet(entryIndex: number, setIndex: number, next: SetLog) {
     if (!draft) return;
     const previous = draft.entries[entryIndex]?.sets[setIndex];
@@ -129,17 +138,17 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     if (!draft) return;
     if (draft.type === 'RINGS' && draft.sourceApp === 'die-ringe' && !draft.ringsAreas?.length) return;
     if (draft.type === 'SPRINT') {
-      const warnings = sprintWarnings(localDate(), sessions);
+      const warnings = sprintWarnings(sessionDate, sessions);
       if (warnings.length && !window.confirm(`${warnings.join('\n\n')}\n\nTrotzdem speichern?`)) return;
     }
-    const backWarnings = strengthWarnings(draft.type, localDate(), sessions);
+    const backWarnings = strengthWarnings(draft.type, sessionDate, sessions);
     if (backWarnings.length && !window.confirm(`${backWarnings.join('\n\n')}\n\nTrotzdem speichern?`)) return;
     setSaving(true);
     const entries = draft.compactCoreToWarmup
       ? draft.entries.filter((entry) => entry.exerciseId !== 'bird-dog' && entry.exerciseId !== 'side-plank')
       : draft.entries;
     const session: Session = {
-      id: crypto.randomUUID(), date: localDate(), type: draft.type, entries,
+      id: crypto.randomUUID(), date: sessionDate, type: draft.type, entries,
       mobilityDone: draft.mobilityDone, note: draft.note.trim() || undefined,
       durationMin: draft.durationMin, intensity: draft.intensity,
       activityName: draft.activityName?.trim() || undefined, manualLoad: draft.manualLoad,
@@ -147,7 +156,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       sourceApp: draft.sourceApp, createdAt: Date.now()
     };
     await addSession(session);
-    onSaved(session.id);
+    onSaved(session);
   }
 
   if (!draft && boardOffPicker) return (
@@ -157,6 +166,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         <div><span className="eyebrow">Land-Drills zu Hause</span><h1>Board-Off-Stufe</h1></div>
         <span className="exercise-count">5</span>
       </header>
+      <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
       <section className="boardoff-principle card"><strong>Immer vorderer Fuß zuerst rein.</strong><p>Variiere Winkel und Board-Lage bewusst – das Muskelgedächtnis soll auch Fehlerbilder kennen.</p></section>
       <div className="stage-list">
         {boardOffStages.map((stage) => (
@@ -172,7 +182,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
   if (!draft) return (
     <main className="page workout-menu">
-      <header className="page-header"><div><span className="eyebrow">Was passt heute?</span><h1>Training starten</h1></div></header>
+      <header className="page-header"><div><span className="eyebrow">Was passt?</span><h1>Training starten</h1></div></header>
+      <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
       <div className="template-list">
         <div className="template-group-heading"><span className="eyebrow">Trainingspläne</span><small>Mit Übungen und Satzvorgaben</small></div>
         {templates.map((template) => (
@@ -202,6 +213,10 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           <span className="template-letter type-other">+</span>
           <span><strong>Andere Aktivität</strong><small>Joggen, Schwimmen etc. · Last frei</small></span><ChevronIcon />
         </button>
+        <button className="template-card card" onClick={startMobility}>
+          <span className="template-letter type-mobility">M</span>
+          <span><strong>Mobility</strong><small>Checkliste · Last 0,0</small></span><ChevronIcon />
+        </button>
       </div>
       <button className="text-button cancel-link" onClick={onCancel}>Abbrechen</button>
     </main>
@@ -218,15 +233,16 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     <main className="page workout-active">
       <header className="sticky-workout-header">
         <button className="icon-button" onClick={() => setDraft(null)} aria-label="Zurück">‹</button>
-        <div><span className="eyebrow">Heute</span><h1>{draft.title ?? currentTemplate?.title ?? `Sprint · Woche ${week}`}</h1></div>
+        <div><span className="eyebrow">{sessionDate === localDate() ? 'Heute' : formatShortDate(sessionDate)}</span><h1>{draft.title ?? currentTemplate?.title ?? `Sprint · Woche ${week}`}</h1></div>
         <span className="exercise-count">{externalRings ? draft.ringsAreas?.length ?? 0 : visibleEntryCount}</span>
       </header>
+      <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
 
       {draft.type === 'SPRINT' && (
         <>
           <section className="sprint-safety"><AlertIcon /><strong>Zwicken in der Oberschenkelrückseite → sofort abbrechen, nicht auslaufen.</strong></section>
           <section className="warmup card"><span className="eyebrow">10 min Warm-up</span><p>Skippings · A-Läufe · Anläufe</p><strong>6×{prescription?.distance} m @ {prescription?.intensity}</strong></section>
-          <SprintStats sessions={sessions} entries={draft.entries} />
+          <SprintStats sessions={sessionHistory} entries={draft.entries} />
         </>
       )}
 
@@ -299,7 +315,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           if (draft.compactCoreToWarmup && (entry.exerciseId === 'bird-dog' || entry.exerciseId === 'side-plank')) return null;
           const exercise = exercises.find((item) => item.id === entry.exerciseId);
           if (!exercise) return null;
-          const target = nextTarget(exercise.id, sessions, exercises);
+          const target = nextTarget(exercise.id, sessionHistory, exercises);
           return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} />;
         })}
       </div>}
@@ -307,6 +323,16 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       {(draft.type === 'A' || draft.type === 'B') && (
         <section className="mobility-card cooldown-card card">
           <div><span className="eyebrow">Danach oder separat · optional</span><h3>Mobility / Dehnen</h3></div>
+          {mobilityItems.map((item) => {
+            const checked = draft.mobilityDone.includes(item.id);
+            return <button key={item.id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>;
+          })}
+        </section>
+      )}
+
+      {draft.type === 'MOBILITY' && (
+        <section className="mobility-card cooldown-card card">
+          <div><span className="eyebrow">Checkliste · Last 0,0</span><h3>Mobility</h3></div>
           {mobilityItems.map((item) => {
             const checked = draft.mobilityDone.includes(item.id);
             return <button key={item.id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>;
@@ -514,7 +540,7 @@ function SprintStats({ sessions, entries }: { sessions: Session[]; entries: Entr
     .filter((session) => session.type === 'SPRINT' && session.entries.some((entry) =>
       entry.exerciseId === 'sprint' && entry.sets.some((set) => set.distanceM === distance && typeof set.sec === 'number' && set.sec > 0)
     ))
-    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt)[0];
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
   const latestTimes = latest?.entries.find((entry) => entry.exerciseId === 'sprint')?.sets
     .flatMap((set) => set.distanceM === distance && typeof set.sec === 'number' && set.sec > 0 ? [set.sec] : []) ?? [];
   const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -524,8 +550,8 @@ function SprintStats({ sessions, entries }: { sessions: Session[]; entries: Entr
     <section className="sprint-stats card">
       <div><span className="eyebrow">{distance ?? '–'} m Statistik</span><h3>Zeiten</h3></div>
       <div className="sprint-stat-grid">
-        <span><small>Heute schnellste</small><strong>{value(currentTimes.length ? Math.min(...currentTimes) : undefined)}</strong></span>
-        <span><small>Heute Schnitt</small><strong>{value(currentTimes.length ? average(currentTimes) : undefined)}</strong></span>
+        <span><small>Diese Einheit · schnellste</small><strong>{value(currentTimes.length ? Math.min(...currentTimes) : undefined)}</strong></span>
+        <span><small>Diese Einheit · Schnitt</small><strong>{value(currentTimes.length ? average(currentTimes) : undefined)}</strong></span>
         <span><small>Letzte Einheit</small><strong>{value(latestTimes.length ? average(latestTimes) : undefined)}</strong></span>
         <span><small>Bestzeit</small><strong>{value(history.length ? Math.min(...history.map((set) => set.sec!)) : undefined)}</strong></span>
       </div>

@@ -41,4 +41,28 @@ describe('training seed', () => {
     expect(morning?.durationMin).toBe(7);
     expect(morning?.items).toHaveLength(6);
   });
+
+  it('defines the post-session hip routine in opening-to-stability order', () => {
+    const hip = mobilityChecklists.find((template) => template.variant === 'hip');
+    expect(hip?.durationMin).toBe(8);
+    expect(hip?.items.map((item) => item.label)).toEqual([
+      'Half-Kneeling Hip Flexor Stretch',
+      '90/90 Hip Switch',
+      'Glute Bridge',
+      'Copenhagen Plank',
+      'Standing Hip Airplane'
+    ]);
+    expect(hip?.items.map((item) => item.dose)).toEqual([
+      '2×45 s je Seite', '10 Wechsel langsam', '2×15, oben 2 s halten', '2×20–30 s je Seite', '5 je Seite'
+    ]);
+    expect(hip?.items.map((item) => item.timerSec)).toEqual([45, undefined, undefined, 20, undefined]);
+    expect(hip?.items[0].cue).toBe('Gesäß der hinteren Seite aktiv anspannen');
+    expect(hip?.items[0].cueDetail).toContain('untere Rücken');
+    expect(hip?.items.slice(1).map((item) => item.purpose)).toEqual([
+      'Innen- und Außenrotation',
+      'Aktivieren nach dem Dehnen — die neue Position muss gehalten werden können',
+      'Auf Knien als Regression',
+      'Balance + Rotationskontrolle'
+    ]);
+  });
 });

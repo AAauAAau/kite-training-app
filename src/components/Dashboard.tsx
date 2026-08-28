@@ -7,21 +7,23 @@ import type { KiteIntensity, RingsArea, RingsSkill, Session } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, WindIcon } from './Icons';
 import { KiteDetailsEditor } from './KiteDetailsEditor';
 import { LoadSparkline } from './LoadSparkline';
+import { SessionDatePicker } from './SessionDatePicker';
 
 const labels: Record<string, string> = { A: 'Tag A', B: 'Tag B', RINGS: 'Ringe', SPRINT: 'Sprint', KITE: 'Kite', PADEL: 'Padel Tennis', KB: 'Kettlebell', MOBILITY: 'Mobility', BOARD_OFF: 'Board-Off Drills', OTHER: 'Andere Aktivität' };
 const ringsAreaLabels: Record<RingsArea, string> = { mobility: 'Mobility', upper: 'Oberkörper', legs: 'Legs', skills: 'Skills' };
 const ringsSkillLabels: Record<RingsSkill, string> = { 'ring-muscle-up': 'Ring Muscle-up', 'l-sit': 'L-Sit', 'side-split': 'Side Split', 'pistol-squat': 'Pistol Squat' };
 
-export function Dashboard({ onTrain }: { onTrain: () => void }) {
+export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKiteLogged: (sessionId: string) => void }) {
   const { sessions, settings, addSession, updateSession, deleteSession, dismissDeload } = useAppStore();
   const [quickKite, setQuickKite] = useState<Session | null>(null);
+  const [kiteDate, setKiteDate] = useState(localDate());
   const [intensitySaved, setIntensitySaved] = useState(false);
   const today = localDate();
   const due = useMemo(() => deloadDue(sessions, settings, today), [sessions, settings, today]);
   const dismissed = settings.deloadDismissedUntil && settings.deloadDismissedUntil >= today;
   const todaySessions = sessions.filter((session) => session.date === today);
   const todayActivities = todaySessions.filter((session) => !isMorningRoutine(session));
-  const activeKite = quickKite ?? todaySessions.find((session) => session.type === 'KITE') ?? null;
+  const activeKite = (quickKite?.date === kiteDate ? quickKite : null) ?? sessions.find((session) => session.date === kiteDate && session.type === 'KITE') ?? null;
   const morning = mobilityChecklists.find((template) => template.variant === 'morning')!;
   const morningSession = todaySessions.find((session) =>
     isMorningRoutine(session)
@@ -30,9 +32,10 @@ export function Dashboard({ onTrain }: { onTrain: () => void }) {
   const strengthWarning = weeklyStrengthWarning(today, sessions);
 
   async function logKite() {
-    const session: Session = { id: crypto.randomUUID(), date: today, type: 'KITE', entries: [], intensity: 'normal', createdAt: Date.now() };
+    const session: Session = { id: crypto.randomUUID(), date: kiteDate, type: 'KITE', entries: [], intensity: 'normal', createdAt: Date.now() };
     await addSession(session);
     setQuickKite(session);
+    onKiteLogged(session.id);
   }
 
   async function setIntensity(intensity: KiteIntensity) {
@@ -101,8 +104,9 @@ export function Dashboard({ onTrain }: { onTrain: () => void }) {
         <span className="eyebrow">Wind schlägt Plan</span>
         <h2>Kitetag?</h2>
         <p>Ein Tap. Ist sofort in deiner Trainingslast.</p>
-        <button className="primary kite-button" onClick={logKite} disabled={Boolean(activeKite)}>
-          {activeKite ? <><CheckIcon /> Geloggt</> : <><WindIcon /> Kite loggen</>}
+        <SessionDatePicker value={kiteDate} onChange={setKiteDate} />
+        <button className="primary kite-button" onClick={logKite}>
+          <WindIcon /> {activeKite ? 'Weitere Kite-Session loggen' : 'Kite loggen'}
         </button>
         {activeKite && (
           <>
@@ -116,7 +120,7 @@ export function Dashboard({ onTrain }: { onTrain: () => void }) {
               <small className={`autosave-hint ${intensitySaved ? 'confirmed' : ''}`} role="status">
                 <CheckIcon /> {intensitySaved ? 'Gespeichert' : 'Wird automatisch gespeichert'}
               </small>
-              <button className="remove-kite" onClick={removeKite}>Kitetag entfernen</button>
+              <button className="remove-kite" onClick={removeKite}>Diese Session entfernen</button>
             </div>
             <KiteDetailsEditor details={activeKite.kite} focusTags={settings.kiteFocusTags} onChange={setKiteDetails} />
           </>

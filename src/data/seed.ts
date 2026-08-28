@@ -144,6 +144,32 @@ export const mobilityChecklists: MobilityChecklistTemplate[] = [
       { id: 'morning-knee-wall', label: 'Knee-to-Wall · 10 je Seite', purpose: 'Dorsalflexion für Landungen' },
       { id: 'morning-glute-bridge', label: 'Glute Bridge · 15 Wdh.', purpose: 'Gesäß rückenschonend aktivieren' }
     ]
+  },
+  {
+    variant: 'hip', title: 'Post-Session-Hüftroutine', durationMin: 8,
+    items: [
+      {
+        id: 'hip-flexor-stretch', label: 'Half-Kneeling Hip Flexor Stretch', dose: '2×45 s je Seite', timerSec: 45,
+        cue: 'Gesäß der hinteren Seite aktiv anspannen',
+        cueDetail: 'Becken nach hinten kippen — sonst wird der untere Rücken gedehnt statt der Hüftbeuger'
+      },
+      {
+        id: 'hip-90-90-switch', label: '90/90 Hip Switch', dose: '10 Wechsel langsam',
+        purpose: 'Innen- und Außenrotation'
+      },
+      {
+        id: 'hip-glute-bridge', label: 'Glute Bridge', dose: '2×15, oben 2 s halten',
+        purpose: 'Aktivieren nach dem Dehnen — die neue Position muss gehalten werden können'
+      },
+      {
+        id: 'hip-copenhagen-plank', label: 'Copenhagen Plank', dose: '2×20–30 s je Seite', timerSec: 20,
+        purpose: 'Auf Knien als Regression'
+      },
+      {
+        id: 'hip-airplane', label: 'Standing Hip Airplane', dose: '5 je Seite',
+        purpose: 'Balance + Rotationskontrolle'
+      }
+    ]
   }
 ];
 

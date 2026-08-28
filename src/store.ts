@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { db, importBackup, seedDatabase } from './db';
 import { defaultSettings } from './data/seed';
-import { addDays, localDate } from './logic/date';
+import { addDays, isLoggableDate, localDate } from './logic/date';
 import type { ActiveTimer, Exercise, Feel, Session, Settings } from './types';
 
 interface AppState {
@@ -33,6 +33,14 @@ async function readAll() {
   return { sessions, exercises, settings: { ...defaultSettings, ...settings }, activeTimer: activeTimer ?? null };
 }
 
+function assertLoggableDate(date: string): void {
+  if (!isLoggableDate(date)) throw new Error('Sessions können nicht in der Zukunft liegen.');
+}
+
+function byDateDescending(a: Session, b: Session): number {
+  return b.date.localeCompare(a.date);
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   ready: false,
   sessions: [],
@@ -44,12 +52,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ ...(await readAll()), ready: true });
   },
   addSession: async (session) => {
+    assertLoggableDate(session.date);
     await db.sessions.add(session);
-    set({ sessions: [session, ...get().sessions].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt - a.createdAt) });
+    set({ sessions: [session, ...get().sessions].sort(byDateDescending) });
   },
   updateSession: async (id, patch) => {
+    if (patch.date !== undefined) assertLoggableDate(patch.date);
     await db.sessions.update(id, patch);
-    set({ sessions: get().sessions.map((session) => session.id === id ? { ...session, ...patch } : session) });
+    set({ sessions: get().sessions.map((session) => session.id === id ? { ...session, ...patch } : session).sort(byDateDescending) });
   },
   deleteSession: async (id) => {
     await db.sessions.delete(id);

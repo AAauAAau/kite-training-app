@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { defaultSettings, exercises as seedExercises } from './data/seed';
+import { isLoggableDate } from './logic/date';
 import type { ActiveTimer, BackupData, Exercise, Session, Settings } from './types';
 
 class KiteDatabase extends Dexie {
@@ -48,6 +49,7 @@ function isBackupData(value: unknown): value is BackupData {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<BackupData>;
   return candidate.version === 1 && Array.isArray(candidate.sessions) &&
+    candidate.sessions.every((session) => isLoggableDate(session.date)) &&
     Array.isArray(candidate.exercises) && Boolean(candidate.settings);
 }
 

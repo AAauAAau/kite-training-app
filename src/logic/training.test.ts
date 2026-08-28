@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Exercise, Session, Settings } from '../types';
-import { deloadDue, nextTarget, rollingLoad7d, schedule, sessionLoad, sprintWeek, strengthWarnings, weeklyStrengthWarning } from './training';
+import { deloadDue, lastLoggedSet, nextTarget, rollingLoad7d, schedule, sessionLoad, sprintWeek, strengthWarnings, weeklyStrengthWarning } from './training';
 
 const exercise: Exercise = { id: 'deadlift', name: 'Deadlift', category: 'strength', metric: 'weight_reps', incrementKg: 2.5 };
 const settings = { loadThreshold7d: 10 } as Settings;
@@ -25,6 +25,9 @@ describe('sessionLoad', () => {
     expect(sessionLoad(session({ type: 'RINGS', intensity }))).toBe(load));
   it('keeps old RINGS sessions at 1.5', () => expect(sessionLoad(session({ type: 'RINGS' }))).toBe(1.5));
   it('uses the manually selected load for other activities', () => expect(sessionLoad(session({ type: 'OTHER', manualLoad: 2.5 }))).toBe(2.5));
+  it('does not add load for an attached hip routine', () => {
+    expect(sessionLoad(session({ type: 'KITE', intensity: 'normal', mobilityDone: ['hip-flexor-stretch', 'hip-glute-bridge'] }))).toBe(2);
+  });
 });
 
 describe('rollingLoad7d', () => {
@@ -36,6 +39,20 @@ describe('rollingLoad7d', () => {
       session({ date: '2026-08-26', type: 'A' })
     ];
     expect(rollingLoad7d(sessions, '2026-08-25')).toBe(3.5);
+  });
+
+  it('counts multiple kite sessions on the same day', () => {
+    const sessions = [
+      session({ date: '2026-08-25', type: 'KITE', intensity: 'chill' }),
+      session({ date: '2026-08-25', type: 'KITE', intensity: 'hard' })
+    ];
+    expect(rollingLoad7d(sessions, '2026-08-25')).toBe(4);
+  });
+
+  it('recomputes after a session date is edited', () => {
+    const original = session({ date: '2026-08-18', type: 'KITE', intensity: 'hard' });
+    expect(rollingLoad7d([original], '2026-08-25')).toBe(0);
+    expect(rollingLoad7d([{ ...original, date: '2026-08-25' }], '2026-08-25')).toBe(3);
   });
 });
 
@@ -51,6 +68,24 @@ describe('deloadDue', () => {
   it('does not trigger at the exact threshold', () => {
     const sessions = [1, 2, 3, 4, 5].map((createdAt) => session({ createdAt, feel: 'good' }));
     expect(deloadDue(sessions, settings, '2026-08-25').due).toBe(false);
+  });
+  it('lets a backfilled session interrupt a wrecked sequence chronologically', () => {
+    const sessions = [
+      session({ date: '2026-08-23', feel: 'wrecked', createdAt: 1 }),
+      session({ date: '2026-08-25', feel: 'wrecked', createdAt: 2 }),
+      session({ date: '2026-08-26', feel: 'wrecked', createdAt: 3 }),
+      session({ date: '2026-08-24', feel: 'good', createdAt: 99 })
+    ];
+    expect(deloadDue(sessions, { loadThreshold7d: 99 }, '2026-08-26').due).toBe(false);
+  });
+  it('lets a backfilled session establish a wrecked sequence chronologically', () => {
+    const sessions = [
+      session({ date: '2026-08-22', feel: 'good', createdAt: 1 }),
+      session({ date: '2026-08-24', feel: 'wrecked', createdAt: 2 }),
+      session({ date: '2026-08-25', feel: 'wrecked', createdAt: 3 }),
+      session({ date: '2026-08-23', feel: 'wrecked', createdAt: 99 })
+    ];
+    expect(deloadDue(sessions, { loadThreshold7d: 99 }, '2026-08-25').reason).toContain('Drei Einheiten');
   });
 });
 
@@ -72,6 +107,21 @@ describe('nextTarget', () => {
     const endurance: Exercise = { ...exercise, id: 'back-extension', incrementKg: 0 };
     const sessions = [session({ entries: [{ exerciseId: endurance.id, sets: [{ kg: 10, reps: 15 }] }] })];
     expect(nextTarget(endurance.id, sessions, [endurance])).toBeNull();
+  });
+  it('uses the latest training date instead of the latest insertion', () => {
+    const sessions = [
+      session({ date: '2026-08-27', createdAt: 1, entries: [{ exerciseId: 'deadlift', sets: [{ kg: 110, successful: true }] }] }),
+      session({ date: '2026-08-24', createdAt: 99, entries: [{ exerciseId: 'deadlift', sets: [{ kg: 100, successful: true }] }] })
+    ];
+    expect(nextTarget('deadlift', sessions, [exercise])?.kg).toBe(112.5);
+    expect(lastLoggedSet('deadlift', sessions)?.kg).toBe(110);
+  });
+  it('does not use createdAt to reorder sessions sharing a date', () => {
+    const sessions = [
+      session({ createdAt: 99, entries: [{ exerciseId: 'deadlift', sets: [{ kg: 100, successful: true }] }] }),
+      session({ createdAt: 1, entries: [{ exerciseId: 'deadlift', sets: [{ kg: 110, successful: true }] }] })
+    ];
+    expect(nextTarget('deadlift', sessions, [exercise])?.kg).toBe(112.5);
   });
 });
 
@@ -111,5 +161,13 @@ describe('schedule', () => {
   it('turns the shared slot into KB when KB was logged that week', () => {
     const plan = schedule('2026-08-24', [session({ date: '2026-08-24', type: 'KB' })], scheduleSettings);
     expect(plan.filter((item) => item.type === 'RINGS' || item.type === 'KB').map((item) => item.type)).toEqual(['KB']);
+  });
+
+  it('places the shared slot using the latest training date, not insertion order', () => {
+    const plan = schedule('2026-08-24', [
+      session({ date: '2026-08-27', type: 'RINGS', createdAt: 1 }),
+      session({ date: '2026-08-24', type: 'KB', createdAt: 99 })
+    ], scheduleSettings);
+    expect(plan.find((item) => item.type === 'RINGS' || item.type === 'KB')).toMatchObject({ date: '2026-08-27', type: 'RINGS' });
   });
 });

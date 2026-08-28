@@ -3,12 +3,14 @@ import { Dashboard } from './components/Dashboard';
 import { FeelSheet } from './components/FeelSheet';
 import { CalendarIcon, HistoryIcon, HomeIcon, PlusIcon, SettingsIcon } from './components/Icons';
 import { LogView } from './components/LogView';
+import { PostSessionHipRoutine } from './components/PostSessionHipRoutine';
 import { SettingsView } from './components/SettingsView';
 import { TimerDock } from './components/TimerDock';
 import { WeekView } from './components/WeekView';
 import { WorkoutView } from './components/WorkoutView';
+import { offersPostSessionHip } from './logic/mobility';
 import { useAppStore } from './store';
-import type { Feel } from './types';
+import type { Feel, Session } from './types';
 
 type View = 'home' | 'train' | 'week' | 'log' | 'settings';
 
@@ -16,6 +18,7 @@ export default function App() {
   const { ready, initialize, setFeel } = useAppStore();
   const [view, setView] = useState<View>('home');
   const [feelSessionId, setFeelSessionId] = useState<string | null>(null);
+  const [hipSessionId, setHipSessionId] = useState<string | null>(null);
 
   useEffect(() => { void initialize(); }, [initialize]);
 
@@ -25,12 +28,17 @@ export default function App() {
     setView('home');
   }
 
+  function finishWorkout(session: Session) {
+    setFeelSessionId(session.id);
+    setHipSessionId(offersPostSessionHip(session.type) ? session.id : null);
+  }
+
   if (!ready) return <div className="splash"><div className="splash-kite">K</div><strong>Kite Strength</strong><span>Offline wird vorbereitet …</span></div>;
 
   return (
     <div className="app-shell">
-      {view === 'home' && <Dashboard onTrain={() => setView('train')} />}
-      {view === 'train' && <WorkoutView onSaved={(id) => setFeelSessionId(id)} onCancel={() => setView('home')} />}
+      {view === 'home' && <Dashboard onTrain={() => setView('train')} onKiteLogged={(id) => setHipSessionId(id)} />}
+      {view === 'train' && <WorkoutView onSaved={finishWorkout} onCancel={() => setView('home')} />}
       {view === 'week' && <WeekView />}
       {view === 'log' && <LogView />}
       {view === 'settings' && <SettingsView />}
@@ -45,6 +53,7 @@ export default function App() {
         </nav>
       )}
       {feelSessionId && <FeelSheet onChoose={chooseFeel} onClose={() => { setFeelSessionId(null); setView('home'); }} />}
+      {!feelSessionId && hipSessionId && <PostSessionHipRoutine sessionId={hipSessionId} onClose={() => setHipSessionId(null)} />}
       <TimerDock />
     </div>
   );

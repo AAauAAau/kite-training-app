@@ -119,10 +119,14 @@ export interface ChecklistItem {
   id: string;
   label: string;
   purpose?: string;
+  dose?: string;
+  cue?: string;
+  cueDetail?: string;
+  timerSec?: number;
 }
 
 export interface MobilityChecklistTemplate {
-  variant: 'pre-session' | 'morning';
+  variant: 'pre-session' | 'morning' | 'hip';
   title: string;
   durationMin: number;
   items: ChecklistItem[];

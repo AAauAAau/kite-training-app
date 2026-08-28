@@ -22,11 +22,15 @@ function cleanDetails(details: KiteDetails): KiteDetails | undefined {
 export function KiteDetailsEditor({
   details,
   focusTags,
-  onChange
+  onChange,
+  idleLabel = 'Wird automatisch gespeichert',
+  savedLabel = 'Gespeichert'
 }: {
   details?: KiteDetails;
   focusTags: string[];
   onChange: (details?: KiteDetails) => Promise<void>;
+  idleLabel?: string;
+  savedLabel?: string;
 }) {
   const [saved, setSaved] = useState(false);
   const timeoutRef = useRef<number | undefined>(undefined);
@@ -83,7 +87,7 @@ export function KiteDetailsEditor({
           </div>
         </fieldset>
         <small className={`autosave-hint ${saved ? 'confirmed' : ''}`} role="status">
-          <CheckIcon /> {saved ? 'Gespeichert' : 'Wird automatisch gespeichert'}
+          <CheckIcon /> {saved ? savedLabel : idleLabel}
         </small>
       </div>
     </details>

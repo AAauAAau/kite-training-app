@@ -28,9 +28,7 @@ export function deloadDue(
   settings: Pick<Settings, 'loadThreshold7d'>,
   date = localDate()
 ): { due: boolean; reason: string } {
-  const chronological = [...sessions].sort((a, b) =>
-    a.date.localeCompare(b.date) || a.createdAt - b.createdAt
-  );
+  const chronological = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
   const lastThree = chronological.slice(-3);
   if (lastThree.length === 3 && lastThree.every((session) => session.feel === 'wrecked')) {
     return { due: true, reason: 'Drei Einheiten in Folge fühlten sich komplett leer an.' };
@@ -65,7 +63,7 @@ export function nextTarget(
   if (exercise?.incrementKg === 0) return null;
   const increment = exercise?.incrementKg ?? 2.5;
   const attempts = [...sessions]
-    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt)
+    .sort((a, b) => a.date.localeCompare(b.date))
     .flatMap((session) => session.entries)
     .filter((entry) => entry.exerciseId === exerciseId)
     .flatMap((entry) => entry.sets)
@@ -85,9 +83,7 @@ export function nextTarget(
 }
 
 export function lastLoggedSet(exerciseId: string, sessions: Session[]): SetLog | null {
-  const ordered = [...sessions].sort((a, b) =>
-    b.date.localeCompare(a.date) || b.createdAt - a.createdAt
-  );
+  const ordered = [...sessions].sort((a, b) => b.date.localeCompare(a.date));
   for (const session of ordered) {
     const entry = session.entries.find((item) => item.exerciseId === exerciseId);
     if (entry?.sets.length) return entry.sets.at(-1) ?? null;
@@ -138,9 +134,9 @@ export function schedule(weekStart: string, sessions: Session[], settings: Setti
   if (strengthDates[1]) planned.push({ date: strengthDates[1], type: 'B', location: 'Gym' });
   const flexDay = homeDates.find((date) => date > (strengthDates.at(-1) ?? weekStart)) ?? homeDates[0] ?? days.at(-1);
   const weekEnd = addDays(weekStart, 6);
-  const loggedAlternative = sessions.find((session) =>
-    session.date >= weekStart && session.date <= weekEnd && (session.type === 'KB' || session.type === 'RINGS')
-  );
+  const loggedAlternative = sessions
+    .filter((session) => session.date >= weekStart && session.date <= weekEnd && (session.type === 'KB' || session.type === 'RINGS'))
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
   const circuitDay = loggedAlternative?.date ?? flexDay;
   if (circuitDay) planned.push({ date: circuitDay, type: loggedAlternative?.type === 'KB' ? 'KB' : 'RINGS', location: 'Zuhause' });
   const sprintDay = homeDates.find((date) => date !== circuitDay);
