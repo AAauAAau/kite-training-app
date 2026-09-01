@@ -30,7 +30,7 @@ const exerciseList: Exercise[] = [
   { id: 'down-dog', name: 'Downward-Facing Dog', category: 'mobility', metric: 'time', timer: { mode: 'countdown', defaultSec: 30 }, restSec: 0 },
   { id: 'boardoff-seated', name: 'Board rein · raus · rein', category: 'boardoff', metric: 'reps' },
   { id: 'boardoff-tail-grab', name: 'Hängend · Tail Grab', category: 'boardoff', metric: 'reps' },
-  { id: 'boardoff-one-footer', name: 'One-Footer · 2 s halten', category: 'boardoff', metric: 'reps', perSide: true },
+  { id: 'boardoff-one-footer', name: 'One-Footer · 2 s halten', category: 'boardoff', metric: 'reps', perSide: true, timer: { mode: 'pace', defaultSec: 2 } },
   { id: 'boardoff-full', name: 'Voller Board-Off hängend', category: 'boardoff', metric: 'reps' },
   { id: 'boardoff-timed', name: 'Kompletter Zyklus · Ziel < 3 s', category: 'boardoff', metric: 'time', timer: { mode: 'countup' } },
   { id: 'toes-to-bar', name: 'Toes-to-Bar', category: 'boardoff', metric: 'reps' },
@@ -138,9 +138,9 @@ export const mobilityChecklists: MobilityChecklistTemplate[] = [
     variant: 'morning', title: 'Morgenroutine', durationMin: 7,
     items: [
       { id: 'morning-cat-cow', label: 'Cat-Cow · 10 Wdh. langsam', purpose: 'Wirbelsäule unbelastet mobilisieren' },
-      { id: 'morning-down-dog', label: 'Downward-Facing Dog · 30 s + 5× Pedalieren', purpose: 'Waden, Sprunggelenk, Schulterflexion' },
+      { id: 'morning-down-dog', label: 'Downward-Facing Dog · 30 s + 5× Pedalieren', purpose: 'Waden, Sprunggelenk, Schulterflexion', timerSec: 30 },
       { id: 'morning-worlds-greatest', label: "World's Greatest Stretch · 5 je Seite", purpose: 'Hüftbeuger und BWS-Rotation' },
-      { id: 'morning-hip-flexor', label: 'Half-Kneeling Hip Flexor Stretch · 45 s je Seite', purpose: 'Trapez-Gegenspieler' },
+      { id: 'morning-hip-flexor', label: 'Half-Kneeling Hip Flexor Stretch · 45 s je Seite', purpose: 'Trapez-Gegenspieler', timerSec: 45 },
       { id: 'morning-knee-wall', label: 'Knee-to-Wall · 10 je Seite', purpose: 'Dorsalflexion für Landungen' },
       { id: 'morning-glute-bridge', label: 'Glute Bridge · 15 Wdh.', purpose: 'Gesäß rückenschonend aktivieren' }
     ]
@@ -158,7 +158,7 @@ export const mobilityChecklists: MobilityChecklistTemplate[] = [
         purpose: 'Innen- und Außenrotation'
       },
       {
-        id: 'hip-glute-bridge', label: 'Glute Bridge', dose: '2×15, oben 2 s halten',
+        id: 'hip-glute-bridge', label: 'Glute Bridge', dose: '2×15, oben 2 s halten', timerSec: 2, timerMode: 'pace',
         purpose: 'Aktivieren nach dem Dehnen — die neue Position muss gehalten werden können'
       },
       {

@@ -123,6 +123,7 @@ export interface ChecklistItem {
   cue?: string;
   cueDetail?: string;
   timerSec?: number;
+  timerMode?: 'countdown' | 'pace';
 }
 
 export interface MobilityChecklistTemplate {

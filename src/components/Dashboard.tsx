@@ -3,18 +3,19 @@ import { formatShortDate, localDate } from '../logic/date';
 import { mobilityChecklists } from '../data/seed';
 import { deloadDue, sessionLoad, weeklyStrengthWarning } from '../logic/training';
 import { useAppStore } from '../store';
-import type { KiteIntensity, RingsArea, RingsSkill, Session } from '../types';
+import type { ChecklistItem, KiteIntensity, RingsArea, RingsSkill, Session } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, WindIcon } from './Icons';
 import { KiteDetailsEditor } from './KiteDetailsEditor';
 import { LoadSparkline } from './LoadSparkline';
 import { SessionDatePicker } from './SessionDatePicker';
+import { primeTimerAudio } from './TimerDock';
 
 const labels: Record<string, string> = { A: 'Tag A', B: 'Tag B', RINGS: 'Ringe', SPRINT: 'Sprint', KITE: 'Kite', PADEL: 'Padel Tennis', KB: 'Kettlebell', MOBILITY: 'Mobility', BOARD_OFF: 'Board-Off Drills', OTHER: 'Andere Aktivität' };
 const ringsAreaLabels: Record<RingsArea, string> = { mobility: 'Mobility', upper: 'Oberkörper', legs: 'Legs', skills: 'Skills' };
 const ringsSkillLabels: Record<RingsSkill, string> = { 'ring-muscle-up': 'Ring Muscle-up', 'l-sit': 'L-Sit', 'side-split': 'Side Split', 'pistol-squat': 'Pistol Squat' };
 
 export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKiteLogged: (sessionId: string) => void }) {
-  const { sessions, settings, addSession, updateSession, deleteSession, dismissDeload } = useAppStore();
+  const { sessions, settings, activeTimer, addSession, updateSession, deleteSession, dismissDeload, startTimer, stopTimer } = useAppStore();
   const [quickKite, setQuickKite] = useState<Session | null>(null);
   const [kiteDate, setKiteDate] = useState(localDate());
   const [intensitySaved, setIntensitySaved] = useState(false);
@@ -73,6 +74,25 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
         durationMin: morning.durationMin, note: morning.title, createdAt: Date.now()
       });
     }
+  }
+
+  async function controlMorningTimer(item: ChecklistItem) {
+    if (!item.timerSec) return;
+    const sourceId = `morning-${today}-${item.id}`;
+    if (activeTimer?.sourceId === sourceId) {
+      await stopTimer();
+      return;
+    }
+    primeTimerAudio();
+    const mode = item.timerMode ?? 'countdown';
+    await startTimer({
+      mode,
+      kind: 'exercise',
+      label: item.label,
+      sourceId,
+      defaultSec: item.timerSec,
+      endTimestamp: Date.now() + item.timerSec * 1000
+    });
   }
 
   return (
@@ -136,10 +156,20 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
           <p className="morning-safety">Morgens keine tiefe Vorbeuge mit rundem Rücken. Down Dog bleibt unbelastet.</p>
           {morning.items.map((item) => {
             const checked = morningSession?.mobilityDone?.includes(item.id) ?? false;
+            const timerActive = activeTimer?.sourceId === `morning-${today}-${item.id}`;
             return (
-              <button key={item.id} className={checked ? 'checked' : ''} onClick={() => void toggleMorning(item.id)}>
-                <i>{checked && <CheckIcon />}</i><span><strong>{item.label}</strong>{item.purpose && <small>{item.purpose}</small>}</span>
-              </button>
+              <div className="morning-item" key={item.id}>
+                <button className={`morning-item-check ${checked ? 'checked' : ''}`} onClick={() => void toggleMorning(item.id)} aria-pressed={checked}>
+                  <i>{checked && <CheckIcon />}</i><span><strong>{item.label}</strong>{item.purpose && <small>{item.purpose}</small>}</span>
+                </button>
+                {item.timerSec && (
+                  <button
+                    className={`morning-item-timer ${timerActive ? 'active' : ''}`}
+                    aria-label={timerActive ? `${item.label}: Timer stoppen` : `${item.label}: ${item.timerSec} Sekunden Timer starten`}
+                    onClick={() => void controlMorningTimer(item)}
+                  >{timerActive ? 'Stop' : item.timerMode === 'pace' ? `${item.timerSec} s Tempo` : `${item.timerSec} s`}</button>
+                )}
+              </div>
             );
           })}
         </div>

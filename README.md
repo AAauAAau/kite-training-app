@@ -21,3 +21,13 @@ npm.cmd run build
 Das Vite-`base` ist auf `/kite-training-app/` gesetzt. Bei einem anderen Repository-Namen muss der Wert in `vite.config.ts` angepasst werden. Danach GitHub Pages unter **Settings → Pages → Source: GitHub Actions** aktivieren.
 
 Die App speichert ausschließlich lokal in IndexedDB. Export/Import unter **Mehr** ist das Backup-Konzept.
+
+## Produktplanung
+
+- [Roadmap und Ideensammlung](docs/roadmap.md)
+- [Feature-Specs](docs/features/README.md)
+
+## Trainingsdokumentation
+
+- [Board-Off-Progression (Trainingsentwurf)](docs/training/board-off-progression.md)
+- [Recherchevorlage für Trick-Progressionen](docs/training/trick-progression-research-prompt.md)

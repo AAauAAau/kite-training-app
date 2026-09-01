@@ -37,8 +37,9 @@ export function PostSessionHipRoutine({ sessionId, onClose }: { sessionId: strin
       return;
     }
     primeTimerAudio();
+    const mode = item.timerMode ?? 'countdown';
     await startTimer({
-      mode: 'countdown',
+      mode,
       kind: 'exercise',
       label: item.label,
       sourceId,
@@ -82,7 +83,7 @@ export function PostSessionHipRoutine({ sessionId, onClose }: { sessionId: strin
                     </button>
                     {item.timerSec && (
                       <button className={`hip-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlTimer(item)}>
-                        {timerActive ? 'Timer stoppen' : `${item.timerSec} s Countdown`}
+                        {timerActive ? 'Timer stoppen' : item.timerMode === 'pace' ? `${item.timerSec} s Tempo` : `${item.timerSec} s Countdown`}
                       </button>
                     )}
                   </div>

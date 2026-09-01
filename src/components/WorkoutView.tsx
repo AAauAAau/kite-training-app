@@ -45,7 +45,7 @@ const ringsSkillOptions: { value: RingsSkill; label: string }[] = [
 ];
 
 export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
-  const { sessions, exercises, addSession, startTimer } = useAppStore();
+  const { sessions, exercises, activeTimer, addSession, startTimer, stopTimer } = useAppStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [boardOffPicker, setBoardOffPicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -132,6 +132,23 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         sourceId: `rest-${exercise?.id}`, defaultSec: restSec, endTimestamp: Date.now() + restSec * 1000
       });
     }
+  }
+
+  async function controlChecklistTimer(label: string, sourceId: string, mode: 'countdown' | 'countup' | 'pace', seconds?: number) {
+    if (activeTimer?.sourceId === sourceId) {
+      await stopTimer();
+      return;
+    }
+    primeTimerAudio();
+    const duration = seconds ?? 30;
+    await startTimer({
+      mode,
+      kind: 'exercise',
+      label,
+      sourceId,
+      defaultSec: duration,
+      endTimestamp: mode === 'countup' ? undefined : Date.now() + duration * 1000
+    });
   }
 
   async function save() {
@@ -249,9 +266,22 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       {(draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
         <section className="mobility-card card">
           <div><span className="eyebrow">Vor der ersten Übung · {preSession.durationMin} min</span><h3>{preSession.title}</h3></div>
-          {preSession.items.map(({ id, label }) => {
-            const checked = draft.mobilityDone.includes(id);
-            return <button key={id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((value) => value !== id) : [...draft.mobilityDone, id] })}><i>{checked && <CheckIcon />}</i><span>{label}</span></button>;
+          {preSession.items.map((item) => {
+            const checked = draft.mobilityDone.includes(item.id);
+            const sourceId = `checklist-${draft.type}-${item.id}`;
+            const timerActive = activeTimer?.sourceId === sourceId;
+            return (
+              <div className="mobility-checklist-item" key={item.id}>
+                <button className={`mobility-item-check ${checked ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((value) => value !== item.id) : [...draft.mobilityDone, item.id] })} aria-pressed={checked}>
+                  <i>{checked && <CheckIcon />}</i><span>{item.label}</span>
+                </button>
+                {item.timerSec && (
+                  <button className={`mobility-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlChecklistTimer(item.label, sourceId, item.timerMode ?? 'countdown', item.timerSec)}>
+                    {timerActive ? 'Stop' : item.timerMode === 'pace' ? `${item.timerSec} s Tempo` : `${item.timerSec} s`}
+                  </button>
+                )}
+              </div>
+            );
           })}
           {draft.type === 'B' && (
             <button className={draft.compactCoreToWarmup ? 'checked' : ''} onClick={() => setDraft({ ...draft, compactCoreToWarmup: !draft.compactCoreToWarmup })}>
@@ -325,7 +355,18 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           <div><span className="eyebrow">Danach oder separat · optional</span><h3>Mobility / Dehnen</h3></div>
           {mobilityItems.map((item) => {
             const checked = draft.mobilityDone.includes(item.id);
-            return <button key={item.id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>;
+            const sourceId = `checklist-${draft.type}-${item.id}`;
+            const timerActive = activeTimer?.sourceId === sourceId;
+            return (
+              <div className="mobility-checklist-item" key={item.id}>
+                <button className={`mobility-item-check ${checked ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })} aria-pressed={checked}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>
+                {item.timer && (
+                  <button className={`mobility-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlChecklistTimer(item.name, sourceId, item.timer!.mode, item.timer!.defaultSec)}>
+                    {timerActive ? 'Stop' : item.timer.mode === 'countup' ? 'Start' : item.timer.mode === 'pace' ? `${item.timer.defaultSec ?? 30} s Tempo` : `${item.timer.defaultSec ?? 30} s`}
+                  </button>
+                )}
+              </div>
+            );
           })}
         </section>
       )}
@@ -335,7 +376,18 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           <div><span className="eyebrow">Checkliste · Last 0,0</span><h3>Mobility</h3></div>
           {mobilityItems.map((item) => {
             const checked = draft.mobilityDone.includes(item.id);
-            return <button key={item.id} className={checked ? 'checked' : ''} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>;
+            const sourceId = `checklist-${draft.type}-${item.id}`;
+            const timerActive = activeTimer?.sourceId === sourceId;
+            return (
+              <div className="mobility-checklist-item" key={item.id}>
+                <button className={`mobility-item-check ${checked ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })} aria-pressed={checked}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>
+                {item.timer && (
+                  <button className={`mobility-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlChecklistTimer(item.name, sourceId, item.timer!.mode, item.timer!.defaultSec)}>
+                    {timerActive ? 'Stop' : item.timer.mode === 'countup' ? 'Start' : item.timer.mode === 'pace' ? `${item.timer.defaultSec ?? 30} s Tempo` : `${item.timer.defaultSec ?? 30} s`}
+                  </button>
+                )}
+              </div>
+            );
           })}
         </section>
       )}

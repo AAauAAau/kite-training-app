@@ -40,6 +40,15 @@ describe('training seed', () => {
     const morning = mobilityChecklists.find((template) => template.variant === 'morning');
     expect(morning?.durationMin).toBe(7);
     expect(morning?.items).toHaveLength(6);
+    expect(morning?.items.find((item) => item.id === 'morning-hip-flexor')?.timerSec).toBe(45);
+  });
+
+  it('provides a timer for every exercise and checklist item that prescribes seconds', () => {
+    const mentionsSeconds = (value?: string) => /\d+(?:[–-]\d+)?\s*s\b/i.test(value ?? '');
+    expect(exercises.filter((exercise) => mentionsSeconds(exercise.name) && !exercise.timer)).toEqual([]);
+    expect(mobilityChecklists.flatMap((template) => template.items).filter((item) =>
+      (mentionsSeconds(item.label) || mentionsSeconds(item.dose)) && !item.timerSec
+    )).toEqual([]);
   });
 
   it('defines the post-session hip routine in opening-to-stability order', () => {
@@ -55,7 +64,7 @@ describe('training seed', () => {
     expect(hip?.items.map((item) => item.dose)).toEqual([
       '2×45 s je Seite', '10 Wechsel langsam', '2×15, oben 2 s halten', '2×20–30 s je Seite', '5 je Seite'
     ]);
-    expect(hip?.items.map((item) => item.timerSec)).toEqual([45, undefined, undefined, 20, undefined]);
+    expect(hip?.items.map((item) => item.timerSec)).toEqual([45, undefined, 2, 20, undefined]);
     expect(hip?.items[0].cue).toBe('Gesäß der hinteren Seite aktiv anspannen');
     expect(hip?.items[0].cueDetail).toContain('untere Rücken');
     expect(hip?.items.slice(1).map((item) => item.purpose)).toEqual([
