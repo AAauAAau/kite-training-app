@@ -46,6 +46,15 @@ export interface Session {
   createdAt: number;
 }
 
+export type MovementPattern =
+  | 'squat' | 'hinge' | 'single-leg'
+  | 'push-h' | 'push-v' | 'pull-h' | 'pull-v'
+  | 'carry' | 'core-anti-ext' | 'core-anti-rot' | 'core-anti-lat'
+  | 'hamstring-curl';
+
+export type Equipment =
+  | 'barbell' | 'dumbbell' | 'kettlebell' | 'machine' | 'bodyweight' | 'band' | 'rings';
+
 export interface Exercise {
   id: string;
   name: string;
@@ -56,6 +65,8 @@ export interface Exercise {
   timer?: { mode: 'countdown' | 'countup' | 'pace'; defaultSec?: number };
   restSec?: number;
   youtubeQuery?: string;
+  pattern?: MovementPattern;
+  equipment?: Equipment;
 }
 
 export interface ActiveTimer {

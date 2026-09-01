@@ -4,8 +4,9 @@ import { formatShortDate, localDate } from '../logic/date';
 import { lastLoggedSet, nextTarget, sprintPrescription, sprintWarnings, sprintWeek, strengthWarnings } from '../logic/training';
 import { useAppStore } from '../store';
 import type { Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
-import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon } from './Icons';
+import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon, SwapIcon } from './Icons';
 import { SessionDatePicker } from './SessionDatePicker';
+import { SubstitutionSheet } from './SubstitutionSheet';
 import { primeTimerAudio } from './TimerDock';
 
 interface WorkoutViewProps {
@@ -28,6 +29,7 @@ type Draft = {
   compactCoreToWarmup?: boolean;
   activityName?: string;
   manualLoad?: number;
+  substitutions?: Record<string, string>;
 };
 
 const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = [
@@ -48,6 +50,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const { sessions, exercises, activeTimer, addSession, startTimer, stopTimer } = useAppStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [boardOffPicker, setBoardOffPicker] = useState(false);
+  const [substituteIndex, setSubstituteIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [sessionDate, setSessionDate] = useState(localDate());
   const sessionHistory = sessions.filter((session) => session.date <= sessionDate);
@@ -132,6 +135,37 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         sourceId: `rest-${exercise?.id}`, defaultSec: restSec, endTimestamp: Date.now() + restSec * 1000
       });
     }
+  }
+
+  function substitute(entryIndex: number, newExerciseId: string) {
+    if (!draft) return;
+    const entry = draft.entries[entryIndex];
+    if (!entry) return;
+    const currentId = entry.exerciseId;
+    if (newExerciseId === currentId) {
+      setSubstituteIndex(null);
+      return;
+    }
+    const originalId = draft.substitutions?.[currentId] ?? currentId;
+    const newExercise = exercises.find((item) => item.id === newExerciseId);
+    const previous = lastLoggedSet(newExerciseId, sessionHistory);
+    const sets = entry.sets.map((set) => ({
+      kg: previous?.kg,
+      reps: previous?.reps ?? set.reps,
+      sec: previous?.sec ?? set.sec,
+      distanceM: previous?.distanceM ?? set.distanceM,
+      perSide: newExercise?.perSide,
+      successful: undefined as boolean | undefined
+    }));
+    const substitutions = { ...(draft.substitutions ?? {}) };
+    delete substitutions[currentId];
+    if (newExerciseId !== originalId) substitutions[newExerciseId] = originalId;
+    setDraft({
+      ...draft,
+      entries: draft.entries.map((item, index) => index === entryIndex ? { exerciseId: newExerciseId, sets } : item),
+      substitutions
+    });
+    setSubstituteIndex(null);
   }
 
   async function controlChecklistTimer(label: string, sourceId: string, mode: 'countdown' | 'countup' | 'pace', seconds?: number) {
@@ -246,6 +280,9 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const visibleEntryCount = draft.compactCoreToWarmup
     ? draft.entries.filter((entry) => entry.exerciseId !== 'bird-dog' && entry.exerciseId !== 'side-plank').length
     : draft.entries.length;
+  const substituteEntry = substituteIndex === null ? undefined : draft.entries[substituteIndex];
+  const substituteExercise = substituteEntry && exercises.find((item) => item.id === substituteEntry.exerciseId);
+  const substituteOriginalId = substituteEntry && draft.substitutions?.[substituteEntry.exerciseId];
   return (
     <main className="page workout-active">
       <header className="sticky-workout-header">
@@ -346,7 +383,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           const exercise = exercises.find((item) => item.id === entry.exerciseId);
           if (!exercise) return null;
           const target = nextTarget(exercise.id, sessionHistory, exercises);
-          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} />;
+          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
         })}
       </div>}
 
@@ -394,6 +431,18 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
       <label className="note-field card"><span>Notiz · optional</span><textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Technik, Schmerz, Variante …" rows={2} /></label>
       <div className="workout-actions"><button className="primary" onClick={save} disabled={saving || (externalRings && !draft.ringsAreas?.length) || (draft.type === 'OTHER' && !draft.activityName?.trim())}>{saving ? 'Speichert …' : externalRings && !draft.ringsAreas?.length ? 'Bereich auswählen' : draft.type === 'OTHER' && !draft.activityName?.trim() ? 'Aktivität benennen' : 'Einheit abschließen'}</button></div>
+
+      {substituteIndex !== null && substituteExercise && (
+        <SubstitutionSheet
+          exercise={substituteExercise}
+          originalExercise={substituteOriginalId ? exercises.find((item) => item.id === substituteOriginalId) : undefined}
+          allExercises={exercises}
+          usedExerciseIds={draft.entries.map((item) => item.exerciseId)}
+          onChoose={(id) => substitute(substituteIndex, id)}
+          onReset={() => { if (substituteOriginalId) substitute(substituteIndex, substituteOriginalId); }}
+          onClose={() => setSubstituteIndex(null)}
+        />
+      )}
     </main>
   );
 }
@@ -476,7 +525,7 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
   );
 }
 
-function ExerciseEditor({ exercise, entry, target, note, update }: { exercise: Exercise; entry: Entry; target: SetLog | null; note?: string; update: (index: number, set: SetLog) => void }) {
+function ExerciseEditor({ exercise, entry, target, note, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; note?: string; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
   const hasWeight = exercise.metric === 'weight_reps';
   const youtubeUrl = exercise.youtubeQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtubeQuery)}`
@@ -494,7 +543,14 @@ function ExerciseEditor({ exercise, entry, target, note, update }: { exercise: E
             </a>
           )}
         </div>
-        {target?.kg !== undefined && <span className="target">Ziel {target.kg} kg</span>}
+        <div className="exercise-header-actions">
+          {target?.kg !== undefined && <span className="target">Ziel {target.kg} kg</span>}
+          {exercise.pattern && (
+            <button type="button" className="exercise-swap-button" onClick={onRequestSwap} aria-label={`${exercise.name} ersetzen`}>
+              <SwapIcon />
+            </button>
+          )}
+        </div>
       </div>
       <div className="set-table">
         <div className={`set-labels ${hasWeight ? '' : 'no-weight'}`}><span>Satz</span>{hasWeight && <span>kg</span>}<span>{exercise.metric === 'time' ? 'Sek.' : exercise.metric === 'distance' || exercise.id === 'suitcase-carry' ? 'Meter' : 'Wdh.'}</span><span>OK</span></div>

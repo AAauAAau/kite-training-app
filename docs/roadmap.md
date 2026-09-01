@@ -6,7 +6,7 @@
 
 | Reihenfolge | Thema | Status |
 | --- | --- | --- |
-| 1 | Übungs-Substitution | Idee |
+| 1 | Übungs-Substitution | Umgesetzt → [Spec](features/exercise-substitution.md) |
 | 2 | Wiedereinstieg nach Pause | Idee |
 | 3 | Autoregulation statt fixer Progression | Idee |
 | 4 | Verletzungs-Modus | Idee |

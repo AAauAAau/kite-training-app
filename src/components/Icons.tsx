@@ -14,3 +14,4 @@ export const ChevronIcon = () => <Icon size={18}><path d="m9 18 6-6-6-6"/></Icon
 export const CheckIcon = () => <Icon size={18}><path d="m5 12 4 4L19 6"/></Icon>;
 export const AlertIcon = () => <Icon><path d="M12 3 2.5 20h19L12 3Z"/><path d="M12 9v4M12 17h.01"/></Icon>;
 export const PlayIcon = () => <Icon size={16}><path d="m9 7 7 5-7 5V7Z"/><circle cx="12" cy="12" r="9"/></Icon>;
+export const SwapIcon = () => <Icon size={18}><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></Icon>;

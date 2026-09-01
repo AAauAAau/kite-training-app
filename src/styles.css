@@ -153,6 +153,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .exercise-video-link { width: fit-content; margin-top: 9px; color: var(--mint); display: flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 750; text-decoration: none; }
 .exercise-video-link:hover { text-decoration: underline; }
 .exercise-video-link svg { flex: 0 0 auto; }
+.exercise-header-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.exercise-swap-button { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--muted); cursor: pointer; }
+.exercise-swap-button:active { color: var(--mint); border-color: var(--mint); }
 .set-table { padding: 0 10px 12px; }
 .set-labels, .set-row { display: grid; grid-template-columns: 42px 1fr 1fr 48px; gap: 7px; align-items: center; text-align: center; }
 .set-labels.no-weight, .set-row.no-weight { grid-template-columns: 42px 1fr 48px; }
@@ -299,6 +302,15 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .feel-grid button:nth-child(1) span { color: var(--mint); }.feel-grid button:nth-child(2) span { color: #f2c46e; }.feel-grid button:nth-child(3) span { color: var(--danger); }
 .sheet-skip { margin: 12px auto 0; display: flex; color: var(--muted); }
 @keyframes slide-up { from { transform: translateY(100%); } }
+
+.substitution-sheet h2 { margin-bottom: 14px; }
+.substitution-reset { width: 100%; min-height: 46px; margin-bottom: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); color: var(--ink); font-weight: 750; cursor: pointer; }
+.substitution-groups { display: grid; gap: 16px; max-height: 52vh; overflow-y: auto; }
+.substitution-group { display: grid; gap: 8px; }
+.substitution-equipment { color: var(--mint); font-size: .68rem; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.substitution-option { min-height: 52px; padding: 0 16px; text-align: left; border: 1px solid var(--line); border-radius: 14px; background: #0c1824; color: var(--ink); font-weight: 700; cursor: pointer; }
+.substitution-option:active { border-color: var(--mint); background: var(--mint-dark); }
+.session-edit-exercise-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .week-switcher { display: grid; grid-template-columns: 48px 1fr 48px; align-items: center; gap: 8px; margin-bottom: 22px; text-align: center; }
 .week-switcher button { height: 44px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); font-size: 1.7rem; cursor: pointer; }

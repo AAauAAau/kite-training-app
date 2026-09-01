@@ -3,6 +3,7 @@ import type { Exercise, Feel, KiteDetails, RingsArea, RingsSkill, Session, SetLo
 import { CheckIcon } from './Icons';
 import { KiteDetailsEditor } from './KiteDetailsEditor';
 import { SessionDatePicker } from './SessionDatePicker';
+import { SubstitutionSheet } from './SubstitutionSheet';
 
 const feelOptions: { value: Feel | undefined; label: string }[] = [
   { value: undefined, label: 'Nicht erfasst' },
@@ -42,6 +43,31 @@ export function SessionEditor({
 }) {
   const [draft, setDraft] = useState<Session>(session);
   const [saving, setSaving] = useState(false);
+  const [swapIndex, setSwapIndex] = useState<number | null>(null);
+  const [originals, setOriginals] = useState<Record<string, string>>({});
+
+  function substituteExercise(entryIndex: number, newExerciseId: string) {
+    const entry = draft.entries[entryIndex];
+    if (!entry || newExerciseId === entry.exerciseId) {
+      setSwapIndex(null);
+      return;
+    }
+    const originalId = originals[entry.exerciseId] ?? entry.exerciseId;
+    const newExercise = exercises.find((item) => item.id === newExerciseId);
+    setOriginals((current) => {
+      const next = { ...current };
+      delete next[entry.exerciseId];
+      if (newExerciseId !== originalId) next[newExerciseId] = originalId;
+      return next;
+    });
+    setDraft((current) => ({
+      ...current,
+      entries: current.entries.map((item, index) => index === entryIndex
+        ? { exerciseId: newExerciseId, sets: item.sets.map((set) => ({ ...set, kg: undefined, perSide: newExercise?.perSide, successful: undefined })) }
+        : item)
+    }));
+    setSwapIndex(null);
+  }
 
   function updateSet(entryIndex: number, setIndex: number, set: SetLog) {
     setDraft((current) => ({
@@ -144,7 +170,12 @@ export function SessionEditor({
                       onRemove={() => removeSet(entryIndex, setIndex)}
                     />
                   ))}
-                  <button type="button" className="add-set-button" onClick={() => addSet(entryIndex)}>+ Satz</button>
+                  <div className="session-edit-exercise-actions">
+                    <button type="button" className="add-set-button" onClick={() => addSet(entryIndex)}>+ Satz</button>
+                    {exercise?.pattern && (
+                      <button type="button" className="add-set-button" onClick={() => setSwapIndex(entryIndex)}>Übung tauschen</button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -170,6 +201,24 @@ export function SessionEditor({
         <button type="button" className="secondary" onClick={onCancel}>Abbrechen</button>
         <button type="button" className="session-delete-button" onClick={() => void onDelete()}>Session löschen</button>
       </div>
+
+      {swapIndex !== null && draft.entries[swapIndex] && (() => {
+        const entry = draft.entries[swapIndex];
+        const current = exercises.find((item) => item.id === entry.exerciseId);
+        if (!current) return null;
+        const originalId = originals[entry.exerciseId];
+        return (
+          <SubstitutionSheet
+            exercise={current}
+            originalExercise={originalId ? exercises.find((item) => item.id === originalId) : undefined}
+            allExercises={exercises}
+            usedExerciseIds={draft.entries.map((item) => item.exerciseId)}
+            onChoose={(id) => substituteExercise(swapIndex, id)}
+            onReset={() => { if (originalId) substituteExercise(swapIndex, originalId); }}
+            onClose={() => setSwapIndex(null)}
+          />
+        );
+      })()}
     </div>
   );
 }

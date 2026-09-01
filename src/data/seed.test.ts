@@ -6,7 +6,7 @@ describe('training seed', () => {
     expect(templates.map((template) => template.type)).toEqual(['A', 'B', 'RINGS', 'KB']);
   });
 
-  it('prescribes the KB circuit exactly and replaces the bilateral carry', () => {
+  it('prescribes the KB circuit exactly and keeps the bilateral carry out of the templates', () => {
     const kb = templates.find((template) => template.type === 'KB')!;
     expect(kb.exercises.map(({ exerciseId, sets, defaultReps }) => [exerciseId, sets, defaultReps])).toEqual([
       ['kb-swing', 5, 10], ['kb-clean-press', 4, 5], ['kb-windmill', 3, 5]
@@ -14,7 +14,16 @@ describe('training seed', () => {
     const tagA = templates.find((template) => template.type === 'A')!;
     expect(tagA.exercises.some((item) => item.exerciseId === 'suitcase-carry')).toBe(true);
     expect(exercises.find((exercise) => exercise.id === 'suitcase-carry')?.perSide).toBe(true);
-    expect(exercises.some((exercise) => exercise.id === 'farmers-carry')).toBe(false);
+    // farmers-carry darf als Substitutions-Option existieren, aber in keinem Template stehen
+    expect(exercises.find((exercise) => exercise.id === 'farmers-carry')?.pattern).toBe('carry');
+    expect(templates.flatMap((template) => template.exercises).some((item) => item.exerciseId === 'farmers-carry')).toBe(false);
+  });
+
+  it('gives every strength template exercise a movement pattern', () => {
+    const templated = [...new Set(templates.flatMap((template) => template.exercises.map((item) => item.exerciseId)))]
+      .map((id) => exercises.find((exercise) => exercise.id === id))
+      .filter((exercise) => exercise?.category === 'strength');
+    expect(templated.filter((exercise) => !exercise?.pattern)).toEqual([]);
   });
 
   it('keeps lower-back endurance unweighted and both distinct plank patterns', () => {
