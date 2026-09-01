@@ -1,5 +1,9 @@
 import type { Exercise, PlannedSession, Session, SetLog, Settings } from '../types';
-import { addDays, localDate, startOfWeek } from './date.ts';
+import { addDays, daysBetween, localDate, startOfWeek } from './date.ts';
+
+export const COMEBACK_AFTER_DAYS = 21;
+export const COMEBACK_FACTOR = 0.8;
+const comebackSessionTypes: Session['type'][] = ['A', 'B', 'KB'];
 
 export const lowerBackWarning = 'Rücken ist von gestern vorbelastet — Gewicht runter oder Tag B vorziehen.';
 export const kbWithoutStrengthWarning = 'Diese Woche keine schwere Beinarbeit — Pop und Landung kommen aus Tag A/B.';
@@ -54,6 +58,15 @@ function roundToIncrement(value: number, increment: number): number {
   return Math.round(value / increment) * increment;
 }
 
+function weightAttempts(exerciseId: string, sessions: Session[]): (SetLog & { kg: number })[] {
+  return [...sessions]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .flatMap((session) => session.entries)
+    .filter((entry) => entry.exerciseId === exerciseId)
+    .flatMap((entry) => entry.sets)
+    .filter((set): set is SetLog & { kg: number } => typeof set.kg === 'number');
+}
+
 export function nextTarget(
   exerciseId: string,
   sessions: Session[],
@@ -62,12 +75,7 @@ export function nextTarget(
   const exercise = exercises.find((item) => item.id === exerciseId);
   if (exercise?.incrementKg === 0) return null;
   const increment = exercise?.incrementKg ?? 2.5;
-  const attempts = [...sessions]
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .flatMap((session) => session.entries)
-    .filter((entry) => entry.exerciseId === exerciseId)
-    .flatMap((entry) => entry.sets)
-    .filter((set): set is SetLog & { kg: number } => typeof set.kg === 'number');
+  const attempts = weightAttempts(exerciseId, sessions);
 
   if (attempts.length === 0) return null;
   const successful = [...attempts].reverse().find((set) => set.successful !== false);
@@ -79,6 +87,62 @@ export function nextTarget(
       ? roundToIncrement(successful.kg * 0.9, increment)
       : roundToIncrement(successful.kg + increment, increment),
     successful: true
+  };
+}
+
+export interface ComebackState {
+  active: boolean;
+  daysSinceLast: number | null;
+  factor: number;
+  reason: string;
+}
+
+/**
+ * Abstand zwischen `date` und der letzten Krafteinheit (A/B/KB) davor.
+ * Über der Schwelle ist die nächste Einheit im Wiedereinstiegs-Modus:
+ * Startgewichte werden reduziert, die Progressionshistorie bleibt unberührt.
+ */
+export function comebackState(sessions: Session[], date = localDate()): ComebackState {
+  const previous = sessions
+    .filter((session) => session.date < date && comebackSessionTypes.includes(session.type))
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!previous) return { active: false, daysSinceLast: null, factor: 1, reason: '' };
+  const daysSinceLast = daysBetween(previous.date, date);
+  if (daysSinceLast <= COMEBACK_AFTER_DAYS) {
+    return { active: false, daysSinceLast, factor: 1, reason: '' };
+  }
+  const weeks = Math.floor(daysSinceLast / 7);
+  return {
+    active: true,
+    daysSinceLast,
+    factor: COMEBACK_FACTOR,
+    reason: `Letzte Krafteinheit vor ${weeks} Wochen — Startgewichte auf ${Math.round(COMEBACK_FACTOR * 100)} % des letzten Arbeitsgewichts reduziert.`
+  };
+}
+
+/**
+ * Gewichtsvorschlag zu Beginn einer Einheit. Ohne Pause identisch zu `nextTarget`.
+ * Im Wiedereinstiegs-Modus: gerundeter Anteil des letzten erfolgreichen
+ * Arbeitsgewichts statt Steigerung. `nextTarget` selbst bleibt unverändert.
+ */
+export function startingTarget(
+  exerciseId: string,
+  sessions: Session[],
+  exercises: Exercise[],
+  date = localDate()
+): SetLog | null {
+  const base = nextTarget(exerciseId, sessions, exercises);
+  const comeback = comebackState(sessions, date);
+  if (!comeback.active || !base || typeof base.kg !== 'number') return base;
+  const increment = exercises.find((item) => item.id === exerciseId)?.incrementKg ?? 2.5;
+  const lastWorking = [...weightAttempts(exerciseId, sessions)]
+    .reverse()
+    .find((set) => set.successful !== false);
+  if (!lastWorking) return base;
+  return {
+    ...base,
+    kg: roundToIncrement(lastWorking.kg * comeback.factor, increment),
+    successful: undefined
   };
 }
 

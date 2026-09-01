@@ -150,6 +150,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .exercise-note { max-width: 390px; margin: 6px 0 0; color: var(--muted); font-size: .74rem; line-height: 1.4; }
 .side-badge, .target { display: inline-block; color: var(--muted); font-size: .7rem; margin-top: 5px; }
 .target { flex: 0 0 auto; color: var(--mint); background: var(--mint-dark); padding: 5px 8px; border-radius: 8px; margin-top: -1px; font-weight: 750; }
+.target.comeback { color: #ffd8ce; background: rgba(74, 34, 28, .56); }
 .exercise-video-link { width: fit-content; margin-top: 9px; color: var(--mint); display: flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 750; text-decoration: none; }
 .exercise-video-link:hover { text-decoration: underline; }
 .exercise-video-link svg { flex: 0 0 auto; }

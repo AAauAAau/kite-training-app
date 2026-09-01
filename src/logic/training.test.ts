@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Exercise, Session, Settings } from '../types';
-import { deloadDue, lastLoggedSet, nextTarget, rollingLoad7d, schedule, sessionLoad, sprintWeek, strengthWarnings, weeklyStrengthWarning } from './training';
+import { comebackState, deloadDue, lastLoggedSet, nextTarget, rollingLoad7d, schedule, sessionLoad, sprintWeek, startingTarget, strengthWarnings, weeklyStrengthWarning } from './training';
 
 const exercise: Exercise = { id: 'deadlift', name: 'Deadlift', category: 'strength', metric: 'weight_reps', incrementKg: 2.5 };
 const settings = { loadThreshold7d: 10 } as Settings;
@@ -122,6 +122,72 @@ describe('nextTarget', () => {
       session({ createdAt: 1, entries: [{ exerciseId: 'deadlift', sets: [{ kg: 110, successful: true }] }] })
     ];
     expect(nextTarget('deadlift', sessions, [exercise])?.kg).toBe(112.5);
+  });
+});
+
+describe('comebackState', () => {
+  it('is inactive without any strength history', () => {
+    expect(comebackState([], '2026-08-25')).toMatchObject({ active: false, daysSinceLast: null });
+  });
+  it('is inactive after a short break', () => {
+    const sessions = [session({ date: '2026-08-11', type: 'A' })];
+    expect(comebackState(sessions, '2026-08-25')).toMatchObject({ active: false, daysSinceLast: 14 });
+  });
+  it('stays inactive at exactly 21 days', () => {
+    const sessions = [session({ date: '2026-08-04', type: 'A' })];
+    expect(comebackState(sessions, '2026-08-25').active).toBe(false);
+  });
+  it('activates past 21 days and reports the week count', () => {
+    const sessions = [session({ date: '2026-08-03', type: 'B' })];
+    const state = comebackState(sessions, '2026-08-25');
+    expect(state).toMatchObject({ active: true, daysSinceLast: 22, factor: 0.8 });
+    expect(state.reason).toContain('3 Wochen');
+  });
+  it('ignores kite and sprint sessions in the gap', () => {
+    const sessions = [
+      session({ date: '2026-08-01', type: 'A' }),
+      session({ date: '2026-08-20', type: 'KITE', intensity: 'hard' }),
+      session({ date: '2026-08-22', type: 'SPRINT' })
+    ];
+    expect(comebackState(sessions, '2026-08-25').active).toBe(true);
+  });
+  it('uses the passed session date, not insertion order', () => {
+    const sessions = [
+      session({ date: '2026-07-01', type: 'A', createdAt: 1 }),
+      session({ date: '2026-08-24', type: 'A', createdAt: 99 })
+    ];
+    expect(comebackState(sessions, '2026-07-15').active).toBe(false);
+    expect(comebackState(sessions, '2026-08-25').active).toBe(false);
+  });
+});
+
+describe('startingTarget', () => {
+  it('matches nextTarget when there is no break', () => {
+    const sessions = [session({ date: '2026-08-24', entries: [{ exerciseId: 'deadlift', sets: [{ kg: 100, reps: 5, successful: true }] }] })];
+    expect(startingTarget('deadlift', sessions, [exercise], '2026-08-25')?.kg).toBe(102.5);
+  });
+  it('reduces to a rounded share of the last working weight after a break', () => {
+    const sessions = [session({ date: '2026-07-20', entries: [{ exerciseId: 'deadlift', sets: [{ kg: 100, reps: 5, successful: true }] }] })];
+    const start = startingTarget('deadlift', sessions, [exercise], '2026-08-25');
+    expect(start?.kg).toBe(80);
+    expect(start?.successful).toBeUndefined();
+  });
+  it('ignores failed attempts when picking the weight to reduce', () => {
+    const sessions = [
+      session({ date: '2026-07-18', entries: [{ exerciseId: 'deadlift', sets: [{ kg: 100, successful: true }] }] }),
+      session({ date: '2026-07-19', entries: [{ exerciseId: 'deadlift', sets: [{ kg: 102.5, successful: false }, { kg: 102.5, successful: false }] }] })
+    ];
+    expect(startingTarget('deadlift', sessions, [exercise], '2026-08-25')?.kg).toBe(80);
+  });
+  it('rounds to the exercise increment', () => {
+    const swing: Exercise = { id: 'kb-swing', name: 'KB Swing', category: 'strength', metric: 'weight_reps', incrementKg: 4 };
+    const sessions = [session({ date: '2026-07-20', entries: [{ exerciseId: 'kb-swing', sets: [{ kg: 30, successful: true }] }] })];
+    expect(startingTarget('kb-swing', sessions, [swing], '2026-08-25')?.kg).toBe(24);
+  });
+  it('returns null for a non-progressing exercise even during a break', () => {
+    const endurance: Exercise = { ...exercise, id: 'back-extension', incrementKg: 0 };
+    const sessions = [session({ date: '2026-07-20', entries: [{ exerciseId: endurance.id, sets: [{ kg: 10, reps: 15 }] }] })];
+    expect(startingTarget(endurance.id, sessions, [endurance], '2026-08-25')).toBeNull();
   });
 });
 

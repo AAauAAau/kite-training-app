@@ -7,7 +7,7 @@
 | Reihenfolge | Thema | Status |
 | --- | --- | --- |
 | 1 | Übungs-Substitution | Umgesetzt → [Spec](features/exercise-substitution.md) |
-| 2 | Wiedereinstieg nach Pause | Idee |
+| 2 | Wiedereinstieg nach Pause | Umgesetzt → [Spec](features/comeback-after-break.md) |
 | 3 | Autoregulation statt fixer Progression | Idee |
 | 4 | Verletzungs-Modus | Idee |
 | 5 | Saison-Modus | Idee |

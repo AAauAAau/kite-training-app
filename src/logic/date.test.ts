@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isBackfilledSession, isLoggableDate } from './date';
+import { daysBetween, isBackfilledSession, isLoggableDate } from './date';
 
 describe('session dates', () => {
   it('accepts today and any valid past date', () => {
@@ -11,6 +11,13 @@ describe('session dates', () => {
     expect(isLoggableDate('2026-08-29', '2026-08-28')).toBe(false);
     expect(isLoggableDate('2026-02-30', '2026-08-28')).toBe(false);
     expect(isLoggableDate('', '2026-08-28')).toBe(false);
+  });
+
+  it('counts whole days between two dates, direction-sensitive and DST-safe', () => {
+    expect(daysBetween('2026-08-03', '2026-08-25')).toBe(22);
+    expect(daysBetween('2026-08-25', '2026-08-25')).toBe(0);
+    expect(daysBetween('2026-08-25', '2026-08-03')).toBe(-22);
+    expect(daysBetween('2026-03-01', '2026-11-01')).toBe(245);
   });
 
   it('marks a session created after its training date as backfilled', () => {

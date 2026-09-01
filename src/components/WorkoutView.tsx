@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { boardOffStages, mobilityChecklists, mobilityItems, templates } from '../data/seed';
 import { formatShortDate, localDate } from '../logic/date';
-import { lastLoggedSet, nextTarget, sprintPrescription, sprintWarnings, sprintWeek, strengthWarnings } from '../logic/training';
+import { comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
 import { useAppStore } from '../store';
 import type { Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon, SwapIcon } from './Icons';
@@ -55,15 +55,17 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const [sessionDate, setSessionDate] = useState(localDate());
   const sessionHistory = sessions.filter((session) => session.date <= sessionDate);
   const week = sprintWeek(sessionHistory);
+  const comeback = comebackState(sessionHistory, sessionDate);
 
   function startTemplate(template: SessionTemplate) {
     const entries = template.exercises.map((item) => {
       const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
       const previous = lastLoggedSet(item.exerciseId, sessionHistory);
+      const start = comeback.active ? startingTarget(item.exerciseId, sessionHistory, exercises, sessionDate) : null;
       return {
         exerciseId: item.exerciseId,
         sets: Array.from({ length: item.sets }, () => ({
-          kg: previous?.kg,
+          kg: start?.kg ?? previous?.kg,
           reps: previous?.reps ?? item.defaultReps,
           sec: previous?.sec ?? item.defaultSec,
           distanceM: previous?.distanceM ?? item.defaultDistanceM,
@@ -292,6 +294,16 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       </header>
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
 
+      {comeback.active && (draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
+        <section className="alert-card subtle">
+          <AlertIcon />
+          <div>
+            <strong>Wiedereinstieg nach Pause</strong>
+            <p>{comeback.reason} Typisch nach Urlaub oder Krankheit — erste Einheit bewusst leicht, danach normal weiter.</p>
+          </div>
+        </section>
+      )}
+
       {draft.type === 'SPRINT' && (
         <>
           <section className="sprint-safety"><AlertIcon /><strong>Zwicken in der Oberschenkelrückseite → sofort abbrechen, nicht auslaufen.</strong></section>
@@ -382,8 +394,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           if (draft.compactCoreToWarmup && (entry.exerciseId === 'bird-dog' || entry.exerciseId === 'side-plank')) return null;
           const exercise = exercises.find((item) => item.id === entry.exerciseId);
           if (!exercise) return null;
-          const target = nextTarget(exercise.id, sessionHistory, exercises);
-          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
+          const target = startingTarget(exercise.id, sessionHistory, exercises, sessionDate);
+          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} comeback={comeback.active} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
         })}
       </div>}
 
@@ -525,7 +537,7 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
   );
 }
 
-function ExerciseEditor({ exercise, entry, target, note, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; note?: string; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
+function ExerciseEditor({ exercise, entry, target, comeback, note, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
   const hasWeight = exercise.metric === 'weight_reps';
   const youtubeUrl = exercise.youtubeQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtubeQuery)}`
@@ -544,7 +556,7 @@ function ExerciseEditor({ exercise, entry, target, note, update, onRequestSwap }
           )}
         </div>
         <div className="exercise-header-actions">
-          {target?.kg !== undefined && <span className="target">Ziel {target.kg} kg</span>}
+          {target?.kg !== undefined && <span className={`target${comeback ? ' comeback' : ''}`}>{comeback ? 'Start' : 'Ziel'} {target.kg} kg</span>}
           {exercise.pattern && (
             <button type="button" className="exercise-swap-button" onClick={onRequestSwap} aria-label={`${exercise.name} ersetzen`}>
               <SwapIcon />
