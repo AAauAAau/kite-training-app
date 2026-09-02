@@ -1,6 +1,6 @@
 # Board-Off-Progression in der App
 
-Status: In Planung
+Status: Umgesetzt
 
 Fachliche Grundlage: [docs/training/board-off-progression.md](../training/board-off-progression.md).
 Diese Spec beschreibt nur die **App-Umsetzung** dieses Trainingsentwurfs.
@@ -279,14 +279,21 @@ Tests in `src/logic/boardoff.test.ts`.
 - Alt-Session mit `boardoff-seated` wird im Log weiterhin korrekt angezeigt.
 - Offline-Start nach Deploy funktioniert weiterhin.
 
-## Umsetzungsreihenfolge (Vorschlag)
+## Umsetzung
 
-1. Typen + Seed (Übungen, `boardOffLevels`, Timer) + `seed.test.ts`.
-2. `src/logic/boardoff.ts` + Tests.
-3. `WorkoutView`: Picker auf `boardOffLevels` umstellen, `startBoardOffLevel`,
-   Rig-Swap, Regression-UI, Setup-Karte.
-4. Einstufungs-Fragebogen.
-5. `SettingsView`-Abschnitt.
-6. `boardOffLevel` in Session + Log-/Wochen-/Dashboard-Anzeige.
+Alle sechs Schritte umgesetzt:
 
-Punkte 1–3 sind das Minimum für „funktioniert"; 4–6 können separat folgen.
+1. Typen (`BoardOffSlot`/`BoardOffLevel`, `Settings.boardOffLevel`/`boardOffHasRig`,
+   `Session.boardOffLevel`) + Seed (26 `bo-*`-Übungen mit Timern, `boardOffLevels`)
+   + `seed.test.ts`.
+2. `src/logic/boardoff.ts` (`recommendBoardOffLevel`, `boardOffLevelSlots`,
+   `levelNeedsRig`) + `boardoff.test.ts`.
+3. `WorkoutView`: Picker auf `boardOffLevels`, `startBoardOffLevel` mit Rig-Swap,
+   Regression-`<details>`, neue Setup-Karte mit Ampel.
+4. `BoardOffAssessmentForm` — 8-Fragen-Einstufung beim ersten Öffnen.
+5. `SettingsView`-Abschnitt „Board-Off" (Stufe 0–5, Rig-Toggle,
+   Einstufung wiederholen).
+6. `boardOffLevel` in `Session.save()` + „· Stufe N" in Log, Woche, Dashboard.
+
+Die alten `boardOffStages` und der `BoardOffStage`-Typ sind entfernt; die
+Legacy-Übungs-IDs (`boardoff-seated` usw.) bleiben im Seed.

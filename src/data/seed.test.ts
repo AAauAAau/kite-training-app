@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exercises, mobilityChecklists, templates } from './seed';
+import { boardOffLevels, exercises, mobilityChecklists, templates } from './seed';
 
 describe('training seed', () => {
   it('contains A, B, rings and KB templates', () => {
@@ -58,6 +58,36 @@ describe('training seed', () => {
     expect(mobilityChecklists.flatMap((template) => template.items).filter((item) =>
       (mentionsSeconds(item.label) || mentionsSeconds(item.dose)) && !item.timerSec
     )).toEqual([]);
+  });
+
+  it('defines six board-off levels with four slots and a gate each', () => {
+    expect(boardOffLevels.map((level) => level.level)).toEqual([0, 1, 2, 3, 4, 5]);
+    for (const level of boardOffLevels) {
+      expect(level.slots).toHaveLength(4);
+      expect(level.gate.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('references only known exercises in board-off slots and alternatives', () => {
+    const ids = new Set(exercises.map((exercise) => exercise.id));
+    for (const level of boardOffLevels) {
+      for (const slot of level.slots) {
+        expect(ids.has(slot.exerciseId)).toBe(true);
+        if (slot.needsRig) {
+          expect(slot.rigFreeAlternative).toBeDefined();
+          expect(ids.has(slot.rigFreeAlternative!.exerciseId)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('gives every board-off time exercise a timer and keeps the legacy ids', () => {
+    expect(exercises.filter((exercise) =>
+      exercise.category === 'boardoff' && exercise.metric === 'time' && !exercise.timer
+    )).toEqual([]);
+    for (const legacyId of ['boardoff-seated', 'boardoff-tail-grab', 'boardoff-one-footer', 'boardoff-full', 'boardoff-timed']) {
+      expect(exercises.some((exercise) => exercise.id === legacyId)).toBe(true);
+    }
   });
 
   it('defines the post-session hip routine in opening-to-stability order', () => {

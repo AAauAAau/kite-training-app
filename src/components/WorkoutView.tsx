@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { boardOffStages, mobilityChecklists, mobilityItems, templates } from '../data/seed';
+import { boardOffLevels, mobilityChecklists, mobilityItems, templates } from '../data/seed';
 import { formatShortDate, localDate } from '../logic/date';
+import { boardOffLevelSlots, levelNeedsRig, recommendBoardOffLevel } from '../logic/boardoff';
+import type { BoardOffAssessment } from '../logic/boardoff';
 import { autoregulatedKg, comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
 import type { AutoregulationFeedback } from '../logic/training';
 import { useAppStore } from '../store';
-import type { Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
+import type { BoardOffLevel, Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon, SwapIcon } from './Icons';
 import { SessionDatePicker } from './SessionDatePicker';
 import { SubstitutionSheet } from './SubstitutionSheet';
@@ -33,6 +35,8 @@ type Draft = {
   substitutions?: Record<string, string>;
   autoregulation?: Record<string, AutoregulationFeedback>;
   autoregulationManualSets?: Record<string, number[]>;
+  boardOffLevel?: number;
+  boardOffRegressions?: Record<string, string>;
 };
 
 const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = [
@@ -50,9 +54,10 @@ const ringsSkillOptions: { value: RingsSkill; label: string }[] = [
 ];
 
 export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
-  const { sessions, exercises, activeTimer, addSession, startTimer, stopTimer } = useAppStore();
+  const { sessions, exercises, settings, activeTimer, addSession, updateSettings, startTimer, stopTimer } = useAppStore();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [boardOffPicker, setBoardOffPicker] = useState(false);
+  const boardOffHasRig = settings.boardOffHasRig ?? true;
   const [substituteIndex, setSubstituteIndex] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [sessionDate, setSessionDate] = useState(localDate());
@@ -82,6 +87,33 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       title: template.title,
       entries,
       exerciseNotes: Object.fromEntries(template.exercises.filter((item) => item.note).map((item) => [item.exerciseId, item.note!])),
+      mobilityDone: [],
+      note: ''
+    });
+    setBoardOffPicker(false);
+  }
+
+  function startBoardOffLevel(level: BoardOffLevel) {
+    const slots = boardOffLevelSlots(level, boardOffHasRig);
+    const entries = slots.map((slot) => {
+      const exercise = exercises.find((candidate) => candidate.id === slot.exerciseId);
+      return {
+        exerciseId: slot.exerciseId,
+        sets: Array.from({ length: slot.sets }, () => ({
+          reps: slot.defaultReps,
+          sec: slot.defaultSec,
+          perSide: exercise?.perSide,
+          successful: undefined
+        }))
+      };
+    });
+    setDraft({
+      type: 'BOARD_OFF',
+      title: level.level === 0 ? 'Board-Off · Vorbereitung' : `Board-Off · Stufe ${level.level} · ${level.label}`,
+      entries,
+      exerciseNotes: Object.fromEntries(slots.map((slot) => [slot.exerciseId, slot.mistake])),
+      boardOffRegressions: Object.fromEntries(slots.map((slot) => [slot.exerciseId, slot.regression])),
+      boardOffLevel: level.level,
       mobilityDone: [],
       note: ''
     });
@@ -241,26 +273,49 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       durationMin: draft.durationMin, intensity: draft.intensity,
       activityName: draft.activityName?.trim() || undefined, manualLoad: draft.manualLoad,
       ringsAreas: draft.ringsAreas, ringsSkills: draft.ringsSkills,
+      boardOffLevel: draft.boardOffLevel,
       sourceApp: draft.sourceApp, createdAt: Date.now()
     };
     await addSession(session);
     onSaved(session);
   }
 
+  if (!draft && boardOffPicker && settings.boardOffLevel === undefined) return (
+    <main className="page workout-menu">
+      <header className="sticky-workout-header">
+        <button className="icon-button" onClick={() => setBoardOffPicker(false)} aria-label="Zurück">‹</button>
+        <div><span className="eyebrow">Einmalig</span><h1>Board-Off-Einstufung</h1></div>
+      </header>
+      <BoardOffAssessmentForm onDone={async (assessment) => {
+        await updateSettings({ boardOffLevel: recommendBoardOffLevel(assessment), boardOffHasRig: assessment.hasRig });
+      }} />
+    </main>
+  );
+
   if (!draft && boardOffPicker) return (
     <main className="page workout-menu">
       <header className="sticky-workout-header">
         <button className="icon-button" onClick={() => setBoardOffPicker(false)} aria-label="Zurück">‹</button>
-        <div><span className="eyebrow">Land-Drills zu Hause</span><h1>Board-Off-Stufe</h1></div>
-        <span className="exercise-count">5</span>
+        <div><span className="eyebrow">Trockentraining im Trapez</span><h1>Board-Off-Stufe</h1></div>
+        <span className="exercise-count">6</span>
       </header>
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
-      <section className="boardoff-principle card"><strong>Immer vorderer Fuß zuerst rein.</strong><p>Variiere Winkel und Board-Lage bewusst – das Muskelgedächtnis soll auch Fehlerbilder kennen.</p></section>
+      <section className="alert-card">
+        <AlertIcon />
+        <div><strong>Tragfähigkeit prüfen.</strong><p>Klemm-Türreckstangen sind nicht ausgelegt und lösen sich unter Ruck. Nur verschraubte Stange, Deckenträger oder Gerüstrohr — einmal mit vollem Körpergewicht plus Ruck testen.</p></div>
+      </section>
+      {!boardOffHasRig && (
+        <section className="alert-card subtle"><AlertIcon /><div><strong>Ohne Aufhängung</strong><p>Übungen im Trapez-Hang laufen als Bodenvariante. In den Einstellungen änderbar.</p></div></section>
+      )}
       <div className="stage-list">
-        {boardOffStages.map((stage) => (
-          <button className="stage-card card" key={stage.level} onClick={() => startTemplate(stage.template)}>
-            <span className="stage-number">{stage.level}</span>
-            <span><strong>{stage.title}</strong><small>{stage.summary}</small></span>
+        {boardOffLevels.map((level) => (
+          <button className={`stage-card card ${settings.boardOffLevel === level.level ? 'selected' : ''}`} key={level.level} onClick={() => startBoardOffLevel(level)}>
+            <span className="stage-number">{level.level}</span>
+            <span>
+              <strong>{level.label}{settings.boardOffLevel === level.level ? ' · deine Stufe' : ''}</strong>
+              <small>Weiter mit: {level.gate}</small>
+              {!boardOffHasRig && levelNeedsRig(level) && <small className="stage-badge">Bodenvariante</small>}
+            </span>
             <ChevronIcon />
           </button>
         ))}
@@ -381,14 +436,20 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
       {draft.type === 'BOARD_OFF' && (
         <section className="boardoff-setup card">
-          <span className="eyebrow">Sicheres Setup</span>
-          <h3>Vor dem Start</h3>
+          <span className="eyebrow">Setup &amp; Sicherheit</span>
+          <h3>Vor dem Hängen</h3>
           <ul>
-            <li>Stabile Klimmzugstange oder Kitebar an sicheren Schlaufen</li>
-            <li>Board mit echten Footstraps und Pads</li>
-            <li>Matte oder Teppich unter dem Board</li>
-            <li>Füße hängen nur knapp über dem Boden</li>
+            <li><strong>Tragfähigkeit:</strong> keine Klemm-Türreckstange. Verschraubte Stange, Deckenträger oder Gerüstrohr, einmal mit vollem Körpergewicht plus Ruck getestet.</li>
+            <li><strong>Höhe:</strong> so niedrig, dass die Füße im Stehen mit leicht gebeugten Knien Bodenkontakt haben — jede Übung durch Hinstellen abbrechbar.</li>
+            <li><strong>Hängewinkel:</strong> Füße etwas vor den Aufhängepunkt, leicht zurücklehnen — der Kite zieht nach oben-hinten, nicht senkrecht.</li>
+            <li><strong>Trapez:</strong> bei Druck auf den Rippenbogen abbrechen, Sitztrapez oder festeren Sitz nutzen.</li>
           </ul>
+          <details className="boardoff-ampel">
+            <summary>Wann abbrechen</summary>
+            <p><strong>Rot — Session sofort beenden:</strong> stechender Schmerz in Leiste/Hüftbeuger, Taubheit oder Kribbeln, Schmerz im unteren Rücken beim Hängen, Druck am Rippenbogen, Schulterschmerz vorn beim einarmigen Hang.</p>
+            <p><strong>Gelb — Übung abbrechen, Regression, weiter:</strong> Griff versagt vor der Kompression, Bewegung nur noch mit Schwung, Hohlkreuz im Hang, unkontrolliertes Zittern.</p>
+            <p><strong>Grün — normal:</strong> Brennen in Hüftbeuger und Bauch, Quadrizeps-Krämpfe bei Kompressionsarbeit.</p>
+          </details>
         </section>
       )}
 
@@ -430,7 +491,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           const exercise = exercises.find((item) => item.id === entry.exerciseId);
           if (!exercise) return null;
           const target = startingTarget(exercise.id, sessionHistory, exercises, sessionDate);
-          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} comeback={comeback.active} note={draft.exerciseNotes[exercise.id]} autoregulation={draft.autoregulation?.[exercise.id]} onAutoregulate={(feedback) => applyAutoregulation(entryIndex, feedback)} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
+          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} comeback={comeback.active} note={draft.exerciseNotes[exercise.id]} regression={draft.boardOffRegressions?.[exercise.id]} autoregulation={draft.autoregulation?.[exercise.id]} onAutoregulate={(feedback) => applyAutoregulation(entryIndex, feedback)} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
         })}
       </div>}
 
@@ -578,7 +639,7 @@ const autoregulationOptions: { value: AutoregulationFeedback; label: string }[] 
   { value: 'hard', label: 'Schwer' }
 ];
 
-function ExerciseEditor({ exercise, entry, target, comeback, note, autoregulation, onAutoregulate, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; autoregulation?: AutoregulationFeedback; onAutoregulate: (feedback: AutoregulationFeedback) => void; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
+function ExerciseEditor({ exercise, entry, target, comeback, note, regression, autoregulation, onAutoregulate, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; regression?: string; autoregulation?: AutoregulationFeedback; onAutoregulate: (feedback: AutoregulationFeedback) => void; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
   const hasWeight = exercise.metric === 'weight_reps';
   const youtubeUrl = exercise.youtubeQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtubeQuery)}`
@@ -623,6 +684,12 @@ function ExerciseEditor({ exercise, entry, target, comeback, note, autoregulatio
             ))}
           </div>
         </div>
+      )}
+      {regression && (
+        <details className="exercise-regression">
+          <summary>Zu schwer?</summary>
+          <p>{regression}</p>
+        </details>
       )}
     </section>
   );
@@ -732,5 +799,59 @@ function SprintStats({ sessions, entries }: { sessions: Session[]; entries: Entr
         <span><small>Bestzeit</small><strong>{value(history.length ? Math.min(...history.map((set) => set.sec!)) : undefined)}</strong></span>
       </div>
     </section>
+  );
+}
+
+const boardOffAssessmentQuestions: { key: keyof Omit<BoardOffAssessment, 'deadHang'>; q: string }[] = [
+  { key: 'hasRig', q: 'Hast du eine Trapez-Aufhängung — Haken in einer tragfähigen Schlaufe, Hände frei?' },
+  { key: 'activeCompression', q: 'Langsitz, Beine gestreckt und geschlossen: beide Fersen ≥ 2 Finger vom Boden, 3 s halten?' },
+  { key: 'longSit30s', q: 'Langsitz 30 s aufrecht, ohne Rundrücken oder Beckenkippen nach hinten?' },
+  { key: 'shoulderFlexion', q: 'Rücken an der Wand, Arme gestreckt über Kopf: Handrücken berühren die Wand, Rippen unten?' },
+  { key: 'tailGrab', q: 'Sitzt der Tail Grab im Sprung sicher?' },
+  { key: 'oneFooter', q: 'Sitzt der One Footer beidseitig?' },
+  { key: 'boardOffByFin', q: 'Schon einen Board Off by Fin auf dem Wasser gefahren?' }
+];
+
+function BoardOffAssessmentForm({ onDone }: { onDone: (assessment: BoardOffAssessment) => void | Promise<void> }) {
+  const [answers, setAnswers] = useState<Partial<BoardOffAssessment>>({});
+  const complete = boardOffAssessmentQuestions.every(({ key }) => typeof answers[key] === 'boolean') && answers.deadHang !== undefined;
+  const recommended = complete ? recommendBoardOffLevel(answers as BoardOffAssessment) : null;
+  return (
+    <div className="boardoff-assessment">
+      <section className="card"><p>Acht kurze Fragen bestimmen deine Startstufe. Später jederzeit in den Einstellungen änderbar.</p></section>
+      {boardOffAssessmentQuestions.map(({ key, q }) => (
+        <section className="card boardoff-question" key={key}>
+          <p>{q}</p>
+          <div className="segmented">
+            <button type="button" className={answers[key] === true ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: true })}>Ja</button>
+            <button type="button" className={answers[key] === false ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: false })}>Nein</button>
+          </div>
+        </section>
+      ))}
+      <section className="card boardoff-question">
+        <p>Dead Hang beidhändig, passiv — wie lange hältst du?</p>
+        <div className="segmented">
+          {(['under20', '20to30', 'over30'] as const).map((value) => (
+            <button type="button" key={value} className={answers.deadHang === value ? 'selected' : ''} onClick={() => setAnswers({ ...answers, deadHang: value })}>
+              {value === 'under20' ? '< 20 s' : value === '20to30' ? '20–30 s' : '> 30 s'}
+            </button>
+          ))}
+        </div>
+      </section>
+      {recommended !== null && (
+        <section className="card boardoff-recommendation">
+          <span className="eyebrow">Empfehlung</span>
+          <strong>Stufe {recommended} · {boardOffLevels[recommended].label}</strong>
+          <p>{recommended === 0 ? 'Erst das Fundament: Kompression, Langsitz-Haltung, Dead Hang.' : `Weiter zur nächsten Stufe mit: ${boardOffLevels[recommended].gate}`}</p>
+          {answers.hasRig === false && <p className="muted">Ohne Aufhängung laufen die Trapez-Hang-Übungen als Bodenvariante.</p>}
+          {answers.shoulderFlexion === false && <p className="muted">Schulterflexion eingeschränkt — Überkopf-Positionen zuerst mobilisieren.</p>}
+        </section>
+      )}
+      <div className="workout-actions">
+        <button className="primary" disabled={!complete} onClick={() => complete && void onDone(answers as BoardOffAssessment)}>
+          {complete ? `Stufe ${recommended} übernehmen` : 'Alle Fragen beantworten'}
+        </button>
+      </div>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { BoardOffStage, Exercise, MobilityChecklistTemplate, SessionTemplate, Settings } from '../types';
+import type { BoardOffLevel, Exercise, MobilityChecklistTemplate, SessionTemplate, Settings } from '../types';
 
 const exerciseList: Exercise[] = [
   { id: 'trap-bar-deadlift', name: 'Trap-Bar Deadlift', category: 'strength', metric: 'weight_reps', incrementKg: 2.5, restSec: 180, pattern: 'hinge', equipment: 'barbell' },
@@ -67,7 +67,36 @@ const exerciseList: Exercise[] = [
   { id: 'boardoff-timed', name: 'Kompletter Zyklus · Ziel < 3 s', category: 'boardoff', metric: 'time', timer: { mode: 'countup' } },
   { id: 'toes-to-bar', name: 'Toes-to-Bar', category: 'boardoff', metric: 'reps' },
   { id: 'dead-hang', name: 'Dead Hang', category: 'boardoff', metric: 'time', timer: { mode: 'countup' } },
-  { id: 'hollow-body-hold', name: 'Hollow Body Hold', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 30 } }
+  { id: 'hollow-body-hold', name: 'Hollow Body Hold', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 30 } },
+  // Board-Off-Progression · Trapez-Hang (Aufhängung nötig)
+  { id: 'bo-hang-tap', name: 'Trapez-Hang: Grab antippen', category: 'boardoff', metric: 'reps' },
+  { id: 'bo-hang-hold', name: 'Trapez-Hang: Grab halten', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 10 } },
+  { id: 'bo-hang-foot-release', name: 'Trapez-Hang: One-Foot Release', category: 'boardoff', metric: 'reps', perSide: true },
+  { id: 'bo-hang-off-fin', name: 'Trapez-Hang: Board Off by Fin', category: 'boardoff', metric: 'reps' },
+  { id: 'bo-hang-off-handle', name: 'Trapez-Hang: Board Off by Handle', category: 'boardoff', metric: 'reps' },
+  { id: 'bo-hang-deep-hold', name: 'Trapez-Hang: Deep-Compression Hold', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 10 } },
+  { id: 'bo-board-hold-1arm', name: 'Board-Hold einarmig (Rail/Finne)', category: 'boardoff', metric: 'time', perSide: true, timer: { mode: 'countdown', defaultSec: 15 } },
+  // Board-Off-Progression · Kompression
+  { id: 'bo-seated-pike-lift', name: 'Seated Pike Lift', category: 'boardoff', metric: 'reps' },
+  { id: 'bo-hollow-hold', name: 'Hollow Body Hold (Board-Off)', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 30 } },
+  { id: 'bo-hang-knee-raise', name: 'Hanging Knee Raise (strikt)', category: 'boardoff', metric: 'reps' },
+  { id: 'bo-hang-leg-raise', name: 'Hanging Straight-Leg Raise', category: 'boardoff', metric: 'reps' },
+  { id: 'bo-hang-leg-raise-1l', name: 'Hanging Leg Raise einbeinig', category: 'boardoff', metric: 'reps', perSide: true },
+  { id: 'bo-tuck-lsit', name: 'Tuck L-Sit', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 15 } },
+  { id: 'bo-vsit-lift', name: 'V-Sit / Pike Lift mit Zusatzlast', category: 'boardoff', metric: 'reps' },
+  // Board-Off-Progression · Griff & Handgelenk
+  { id: 'bo-dead-hang', name: 'Dead Hang beidhändig', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 40 } },
+  { id: 'bo-hang-1arm-assist', name: 'Einarmiger Hang (assistiert)', category: 'boardoff', metric: 'time', perSide: true, timer: { mode: 'countdown', defaultSec: 12 } },
+  { id: 'bo-bottoms-up-hold', name: 'Bottoms-Up KB Hold / Plate Pinch', category: 'boardoff', metric: 'time', perSide: true, timer: { mode: 'countdown', defaultSec: 20 } },
+  { id: 'bo-wrist-twist', name: 'Handgelenks-Drill: Board drehen', category: 'boardoff', metric: 'reps' },
+  // Board-Off-Progression · Schulter & Anti-Extension/Rotation
+  { id: 'bo-kb-oh-hold', name: 'Einarmiger KB Overhead-Hold', category: 'boardoff', metric: 'time', perSide: true, timer: { mode: 'countdown', defaultSec: 25 } },
+  { id: 'bo-oh-carry', name: 'Einarmiger Overhead Carry', category: 'boardoff', metric: 'time', perSide: true, timer: { mode: 'countdown', defaultSec: 30 } },
+  { id: 'bo-suitcase-hold', name: 'Suitcase / Offset Hold', category: 'boardoff', metric: 'time', perSide: true, timer: { mode: 'countdown', defaultSec: 25 } },
+  { id: 'bo-deadbug-kb', name: 'Dead Bug mit KB Overhead', category: 'boardoff', metric: 'reps', perSide: true },
+  // Board-Off-Progression · Mobilität & Motorik
+  { id: 'bo-jefferson-curl', name: 'Jefferson Curl / Pike-Dehnung', category: 'boardoff', metric: 'time', timer: { mode: 'countdown', defaultSec: 45 } },
+  { id: 'bo-seated-board', name: 'Board an-/ausziehen im Sitzen', category: 'boardoff', metric: 'reps' }
 ];
 
 const youtubeQueries: Record<string, string> = {
@@ -136,7 +165,31 @@ const youtubeQueries: Record<string, string> = {
   'boardoff-timed': 'kiteboarding board off tutorial',
   'toes-to-bar': 'toes to bar proper form',
   'dead-hang': 'dead hang proper form',
-  'hollow-body-hold': 'hollow body hold proper form'
+  'hollow-body-hold': 'hollow body hold proper form',
+  'bo-hang-tap': 'hanging compression knee raise tuck proper form',
+  'bo-hang-hold': 'l-sit tuck hold progression proper form',
+  'bo-hang-foot-release': 'kiteboarding one footer board off tutorial',
+  'bo-hang-off-fin': 'kiteboarding fin grab board off tutorial',
+  'bo-hang-off-handle': 'kiteboarding board off by handle tutorial',
+  'bo-hang-deep-hold': 'v-sit compression hold progression',
+  'bo-board-hold-1arm': 'single arm weighted hold shoulder stability',
+  'bo-seated-pike-lift': 'seated pike compression lift proper form',
+  'bo-hollow-hold': 'hollow body hold proper form',
+  'bo-hang-knee-raise': 'strict hanging knee raise proper form',
+  'bo-hang-leg-raise': 'hanging straight leg raise proper form',
+  'bo-hang-leg-raise-1l': 'single leg hanging leg raise proper form',
+  'bo-tuck-lsit': 'tuck l-sit progression rings parallettes',
+  'bo-vsit-lift': 'weighted v-sit pike compression lift',
+  'bo-dead-hang': 'dead hang proper form',
+  'bo-hang-1arm-assist': 'assisted one arm hang progression',
+  'bo-bottoms-up-hold': 'bottoms up kettlebell hold proper form',
+  'bo-wrist-twist': 'kiteboarding board off wrist drill',
+  'bo-kb-oh-hold': 'single arm kettlebell overhead hold proper form',
+  'bo-oh-carry': 'single arm overhead carry proper form',
+  'bo-suitcase-hold': 'suitcase hold anti lateral flexion proper form',
+  'bo-deadbug-kb': 'dead bug overhead kettlebell proper form',
+  'bo-jefferson-curl': 'jefferson curl proper form',
+  'bo-seated-board': 'kiteboarding board off land drill seated'
 };
 
 export const exercises: Exercise[] = exerciseList.map((exercise) => ({
@@ -238,64 +291,110 @@ export const mobilityChecklists: MobilityChecklistTemplate[] = [
 
 export const mobilityItems = exercises.filter((exercise) => exercise.category === 'mobility');
 
-export const boardOffStages: BoardOffStage[] = [
+// Board-Off-Progression · Trockentraining im Trapez.
+// Fachliche Grundlage: docs/training/board-off-progression.md
+export const boardOffLevels: BoardOffLevel[] = [
   {
     level: 0,
-    title: 'Sitzend',
-    summary: 'Board rein, raus, rein · 50+ Wiederholungen',
-    template: {
-      type: 'BOARD_OFF', title: 'Stufe 0 · Sitzend', subtitle: 'Muskelgedächtnis und Fehlwinkel',
-      exercises: [{ exerciseId: 'boardoff-seated', sets: 5, defaultReps: 10, note: 'Board verdrehen, schief ansetzen, seitlich kippen. Vorderer Fuß zuerst.' }]
-    }
+    label: 'Vorbereitung',
+    skill: null,
+    gate: 'Kompressionstest bestanden + Langsitz 30 s + Dead Hang 30 s',
+    slots: [
+      { exerciseId: 'bo-seated-pike-lift', sets: 3, defaultReps: 10, mistake: 'Knie beugen, um höher zu kommen', regression: 'Hände weiter hinten aufsetzen, Straddle statt Pike' },
+      { exerciseId: 'bo-hollow-hold', sets: 3, defaultSec: 30, mistake: 'Lendenwirbelsäule hebt vom Boden ab', regression: 'Knie angewinkelt (Tuck Hollow)' },
+      { exerciseId: 'bo-dead-hang', sets: 3, defaultSec: 35, mistake: 'Passiv in den Schultern hängen', regression: 'Füße am Boden entlasten' },
+      { exerciseId: 'bo-jefferson-curl', sets: 3, defaultSec: 45, mistake: 'Mit Schwung in die Dehnung', regression: 'Straddle, Knie minimal gebeugt' }
+    ]
   },
   {
     level: 1,
-    title: 'Tail Grab',
-    summary: 'Hängend · halten und lösen · 3×8',
-    template: {
-      type: 'BOARD_OFF', title: 'Stufe 1 · Tail Grab', subtitle: 'Knie anziehen · Tail sicher greifen',
-      exercises: [
-        { exerciseId: 'boardoff-tail-grab', sets: 3, defaultReps: 8, note: 'Hintere Heelside-Kante an Finne und Rail greifen.' },
-        { exerciseId: 'dead-hang', sets: 3, defaultSec: 30 }
-      ]
-    }
+    label: 'Grab antippen',
+    skill: 'Grab antippen',
+    gate: '10 saubere Taps in Folge, je 1 s gehalten, ohne Pendeln',
+    slots: [
+      {
+        exerciseId: 'bo-hang-tap', sets: 4, defaultReps: 8, needsRig: true,
+        mistake: 'Mit Schwung pendeln statt aktiv beugen',
+        regression: 'Nur Knie zur Brust, ohne Berührung',
+        rigFreeAlternative: { exerciseId: 'bo-hang-leg-raise', sets: 4, defaultReps: 8, mistake: 'Mit Schwung pendeln statt aktiv beugen', regression: 'Knie gebeugt (Knee Raise)' }
+      },
+      { exerciseId: 'bo-hang-knee-raise', sets: 3, defaultReps: 10, mistake: 'Rücken ins Hohlkreuz, Becken kippt nicht mit', regression: 'Liegend: Reverse Curl mit fixierten Armen' },
+      { exerciseId: 'bo-deadbug-kb', sets: 3, defaultReps: 8, mistake: 'Rippen heben ab', regression: 'Ohne Gewicht, nur Arme senkrecht' },
+      { exerciseId: 'bo-dead-hang', sets: 3, defaultSec: 45, mistake: 'Schultern komplett passiv', regression: 'Füße entlasten' }
+    ]
   },
   {
     level: 2,
-    title: 'One-Footer',
-    summary: 'Hinterer Fuß raus · 2 s halten · 3×6 je Seite',
-    template: {
-      type: 'BOARD_OFF', title: 'Stufe 2 · One-Footer', subtitle: 'Einhändig hängen · kontrolliert zurück',
-      exercises: [
-        { exerciseId: 'boardoff-one-footer', sets: 3, defaultReps: 6, defaultSec: 2 },
-        { exerciseId: 'hollow-body-hold', sets: 3, defaultSec: 30 }
-      ]
-    }
+    label: 'Grab halten',
+    skill: 'Grab halten',
+    gate: '3 × 10 s Grab Hold ohne Absinken, beidseitig',
+    slots: [
+      {
+        exerciseId: 'bo-hang-hold', sets: 5, defaultSec: 10, needsRig: true,
+        mistake: 'Position langsam absacken lassen und trotzdem weiterzählen',
+        regression: 'Tuck-Position statt gestreckter, kürzere Holds',
+        rigFreeAlternative: { exerciseId: 'bo-hollow-hold', sets: 5, defaultSec: 15, mistake: 'Lendenwirbelsäule hebt vom Boden ab', regression: 'Knie angewinkelt (Tuck Hollow)' }
+      },
+      { exerciseId: 'bo-tuck-lsit', sets: 4, defaultSec: 15, mistake: 'Schultern hochziehen', regression: 'Füße am Boden, nur Gewicht verlagern' },
+      { exerciseId: 'bo-kb-oh-hold', sets: 3, defaultSec: 25, mistake: 'Rippenbogen kippt nach vorn', regression: 'Leichteres Gewicht, Rücken an der Wand' },
+      { exerciseId: 'bo-seated-pike-lift', sets: 3, defaultReps: 8, mistake: 'Ruckartig statt kontrolliert', regression: 'Ohne Gewicht' }
+    ]
   },
   {
     level: 3,
-    title: 'Voller Board-Off',
-    summary: 'Beide Füße raus · Board ausrichten · 3×5',
-    template: {
-      type: 'BOARD_OFF', title: 'Stufe 3 · Voller Board-Off', subtitle: 'Erst beidhändig, später einhändig',
-      exercises: [
-        { exerciseId: 'boardoff-full', sets: 3, defaultReps: 5, note: 'Vorderer Fuß zuerst rein, dann der hintere.' },
-        { exerciseId: 'toes-to-bar', sets: 3, defaultReps: 8 }
-      ]
-    }
+    label: 'One Footer',
+    skill: 'One Footer',
+    gate: '5 Releases pro Seite, Fuß trifft beim ersten Versuch, ohne Blickkontrolle',
+    slots: [
+      {
+        exerciseId: 'bo-hang-foot-release', sets: 4, defaultReps: 5, needsRig: true,
+        mistake: 'Nach unten schauen, um den Fuß zu treffen — im Sprung geht das nicht',
+        regression: 'Fuß nur lösen, ohne Halten',
+        rigFreeAlternative: { exerciseId: 'bo-deadbug-kb', sets: 4, defaultReps: 5, mistake: 'Rippen heben ab, Rumpf rotiert', regression: 'Ohne Gewicht' }
+      },
+      { exerciseId: 'bo-suitcase-hold', sets: 3, defaultSec: 25, mistake: 'Rumpf zur Seite kippen lassen', regression: 'Leichteres Gewicht' },
+      { exerciseId: 'bo-hang-leg-raise-1l', sets: 3, defaultReps: 8, mistake: 'Standbein zieht mit hoch', regression: 'Knie gebeugt' },
+      { exerciseId: 'bo-hang-1arm-assist', sets: 4, defaultSec: 12, mistake: 'Schulter komplett auskugeln lassen (passiv)', regression: 'Beide Hände, Gewicht 80/20 verlagern' }
+    ]
   },
   {
     level: 4,
-    title: 'Unter Zeitdruck',
-    summary: 'Kompletter Zyklus unter 3 Sekunden',
-    template: {
-      type: 'BOARD_OFF', title: 'Stufe 4 · Unter Zeitdruck', subtitle: 'Fehlwinkel · Tail Flip · um den Körper',
-      exercises: [
-        { exerciseId: 'boardoff-timed', sets: 6, defaultSec: 3, note: 'Danach verdreht starten und Varianten einbauen.' },
-        { exerciseId: 'toes-to-bar', sets: 3, defaultReps: 8 },
-        { exerciseId: 'dead-hang', sets: 3, defaultSec: 45 }
-      ]
-    }
+    label: 'Board Off by Fin',
+    skill: 'Board Off by Fin',
+    gate: '5 Board Offs, Board 3 s ruhig am Rail, Füße beim ersten Versuch zurück',
+    slots: [
+      {
+        exerciseId: 'bo-hang-off-fin', sets: 4, defaultReps: 5, needsRig: true,
+        mistake: 'Board zu weit vom Körper, Handgelenk knickt ab',
+        regression: 'Board am Rail nahe der Mitte greifen',
+        rigFreeAlternative: { exerciseId: 'bo-vsit-lift', sets: 4, defaultReps: 5, mistake: 'Rundrücken statt Hüftbeugung', regression: 'Ohne Zusatzlast, Straddle' }
+      },
+      { exerciseId: 'bo-board-hold-1arm', sets: 3, defaultSec: 15, mistake: 'Board kippen lassen und mit Schwung stabilisieren', regression: 'Board näher am Körper, zwei Hände' },
+      { exerciseId: 'bo-bottoms-up-hold', sets: 3, defaultSec: 20, mistake: 'Ellbogen mitarbeiten lassen', regression: 'Leichteres Gewicht' },
+      { exerciseId: 'bo-hang-leg-raise', sets: 3, defaultReps: 8, mistake: 'Kipping', regression: 'Knie zur Brust' }
+    ]
+  },
+  {
+    level: 5,
+    label: 'Board Off by Handle',
+    skill: 'Board Off by Handle',
+    gate: '5 Board Offs by Handle mit je 3 s Hold, mit rechter und linker Greifhand',
+    slots: [
+      {
+        exerciseId: 'bo-hang-off-handle', sets: 4, defaultReps: 5, needsRig: true,
+        mistake: 'Rumpf nach vorn klappen statt Hüfte beugen',
+        regression: 'Board erst am Rail greifen, dann zum Handle umgreifen',
+        rigFreeAlternative: { exerciseId: 'bo-hang-leg-raise', sets: 4, defaultReps: 5, mistake: 'Kipping statt aktiver Hüftbeugung', regression: 'Knie zur Brust' }
+      },
+      {
+        exerciseId: 'bo-hang-deep-hold', sets: 4, defaultSec: 10, needsRig: true,
+        mistake: 'Beine sinken, Hand hält das Board hoch statt umgekehrt',
+        regression: 'Kürzere Holds, Knie leicht gebeugt',
+        rigFreeAlternative: { exerciseId: 'bo-tuck-lsit', sets: 4, defaultSec: 12, mistake: 'Schultern hochziehen', regression: 'Füße am Boden, nur Gewicht verlagern' }
+      },
+      { exerciseId: 'bo-vsit-lift', sets: 4, defaultReps: 8, mistake: 'Rundrücken statt Hüftbeugung', regression: 'Ohne Zusatzlast, Straddle' },
+      { exerciseId: 'bo-oh-carry', sets: 3, defaultSec: 30, mistake: 'Seitliches Wegkippen', regression: 'Leichter, Rack Position statt Overhead' }
+    ]
   }
 ];
 

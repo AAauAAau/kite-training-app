@@ -220,7 +220,7 @@ function SessionRow({ session }: { session: Session }) {
       <div className={`session-icon type-${session.type.toLowerCase()}`}>{session.type === 'KITE' ? <WindIcon /> : title.slice(0, 1)}</div>
       <div className="session-copy">
         <strong>{title}</strong>
-        <span>{formatShortDate(session.date)}{areas ? ` · ${areas}` : ''}{session.durationMin ? ` · ${session.durationMin} min` : ''} · Last {sessionLoad(session).toFixed(1)}</span>
+        <span>{formatShortDate(session.date)}{areas ? ` · ${areas}` : ''}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · Stufe ${session.boardOffLevel}` : ''}{session.durationMin ? ` · ${session.durationMin} min` : ''} · Last {sessionLoad(session).toFixed(1)}</span>
         {skills && <small>{skills}</small>}
       </div>
       {session.feel && <span className={`feel-dot ${session.feel}`} title={session.feel} />}

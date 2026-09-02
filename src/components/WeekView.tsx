@@ -60,7 +60,7 @@ export function WeekView() {
           <span className="eyebrow">Diese Woche geloggt</span>
           {loggedThisWeek.map((session) => (
             <div key={session.id}>
-              <span><strong>{sessionName(session)}</strong><small>{formatShortDate(session.date)}</small></span>
+              <span><strong>{sessionName(session)}</strong><small>{formatShortDate(session.date)}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · Stufe ${session.boardOffLevel}` : ''}</small></span>
               {isBackfilledSession(session) && <small className="backfilled-badge">↶ nachgetragen</small>}
             </div>
           ))}

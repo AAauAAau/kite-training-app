@@ -43,6 +43,7 @@ export interface Session {
   activityName?: string;
   manualLoad?: number;
   mobilityDone?: string[];
+  boardOffLevel?: number;
   createdAt: number;
 }
 
@@ -93,6 +94,8 @@ export interface Settings {
   hamburgDays: number[];
   timerAudioEnabled?: boolean;
   kiteFocusTags: string[];
+  boardOffLevel?: number;
+  boardOffHasRig?: boolean;
 }
 
 export interface TemplateExercise {
@@ -111,11 +114,26 @@ export interface SessionTemplate {
   exercises: TemplateExercise[];
 }
 
-export interface BoardOffStage {
+export interface BoardOffSlotBase {
+  exerciseId: string;
+  sets: number;
+  defaultReps?: number;
+  defaultSec?: number;
+  mistake: string;
+  regression: string;
+}
+
+export interface BoardOffSlot extends BoardOffSlotBase {
+  needsRig?: boolean;
+  rigFreeAlternative?: BoardOffSlotBase;
+}
+
+export interface BoardOffLevel {
   level: number;
-  title: string;
-  summary: string;
-  template: SessionTemplate;
+  label: string;
+  skill: string | null;
+  gate: string;
+  slots: BoardOffSlot[];
 }
 
 export interface PlannedSession {

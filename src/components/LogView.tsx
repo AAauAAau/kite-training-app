@@ -89,7 +89,7 @@ function LogEntry({
     <details className="log-entry card">
       <summary>
         <span className={`session-icon type-${session.type.toLowerCase()}`}>{title.slice(0, 1)}</span>
-        <span><strong>{title}</strong><small>{formatShortDate(session.date)} · Last {sessionLoad(session).toFixed(1)}</small></span>
+        <span><strong>{title}</strong><small>{formatShortDate(session.date)}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · Stufe ${session.boardOffLevel}` : ''} · Last {sessionLoad(session).toFixed(1)}</small></span>
         <b>⌄</b>
       </summary>
       <div className="log-details">

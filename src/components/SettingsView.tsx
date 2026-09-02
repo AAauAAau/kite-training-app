@@ -85,6 +85,23 @@ export function SettingsView() {
           ))}
         </div>
       </section>
+      {settings.boardOffLevel !== undefined && (
+        <section className="settings-card card">
+          <span className="eyebrow">Board-Off</span><h2>Progression</h2>
+          <p>Deine aktuelle Stufe. Höherstufen, sobald du das Gate der Stufe schaffst.</p>
+          <div className="segmented">
+            {[0, 1, 2, 3, 4, 5].map((level) => (
+              <button key={level} className={settings.boardOffLevel === level ? 'selected' : ''} onClick={() => void updateSettings({ boardOffLevel: level })}>{level}</button>
+            ))}
+          </div>
+          <p>Trapez-Aufhängung vorhanden?</p>
+          <div className="segmented">
+            <button className={(settings.boardOffHasRig ?? true) ? 'selected' : ''} onClick={() => void updateSettings({ boardOffHasRig: true })}>Ja</button>
+            <button className={(settings.boardOffHasRig ?? true) ? '' : 'selected'} onClick={() => void updateSettings({ boardOffHasRig: false })}>Nein</button>
+          </div>
+          <button className="secondary" onClick={() => { void updateSettings({ boardOffLevel: undefined }); setMessage('Einstufung zurückgesetzt — beim nächsten Board-Off-Start neu.'); }}>Einstufung wiederholen</button>
+        </section>
+      )}
       <section className="settings-card card">
         <span className="eyebrow">Kite-Log</span><h2>Skill-Tags</h2>
         <p>Diese Tags stehen in den optionalen Kite-Details zur Auswahl. Bereits geloggte Tags bleiben beim Entfernen erhalten.</p>
