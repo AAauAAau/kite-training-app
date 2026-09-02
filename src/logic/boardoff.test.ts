@@ -11,7 +11,8 @@ const ready: BoardOffAssessment = {
   deadHang: 'over30',
   tailGrab: false,
   oneFooter: false,
-  boardOffByFin: false
+  boardOffByFin: false,
+  boardOffByHandle: false
 };
 
 describe('recommendBoardOffLevel', () => {
@@ -29,19 +30,16 @@ describe('recommendBoardOffLevel', () => {
     expect(recommendBoardOffLevel({ ...ready, tailGrab: true })).toBe(2);
     expect(recommendBoardOffLevel({ ...ready, tailGrab: true, oneFooter: true })).toBe(3);
     expect(recommendBoardOffLevel({ ...ready, tailGrab: true, oneFooter: true, boardOffByFin: true })).toBe(4);
+    expect(recommendBoardOffLevel({ ...ready, tailGrab: true, oneFooter: true, boardOffByFin: true, boardOffByHandle: true })).toBe(5);
   });
 
-  it('never auto-recommends level 5', () => {
-    const answers = Array.from({ length: 16 }, (_, i) => ({
-      ...ready,
-      deadHang: (['under20', '20to30', 'over30'] as const)[i % 3],
-      activeCompression: Boolean(i & 1),
-      longSit30s: Boolean(i & 2),
-      tailGrab: Boolean(i & 4),
-      oneFooter: Boolean(i & 8),
-      boardOffByFin: Boolean(i & 1)
-    }));
-    expect(answers.map(recommendBoardOffLevel).every((level) => level <= 4)).toBe(true);
+  it('recommends level 5 only once the by-handle board-off is landed on the water', () => {
+    expect(recommendBoardOffLevel({ ...ready, boardOffByHandle: true })).toBe(5);
+    expect(recommendBoardOffLevel({ ...ready, boardOffByFin: true })).toBe(4);
+  });
+
+  it('keeps the hard gate ahead of every skill claim', () => {
+    expect(recommendBoardOffLevel({ ...ready, boardOffByHandle: true, activeCompression: false })).toBe(0);
   });
 
   it('ignores shoulder flexion for the number', () => {

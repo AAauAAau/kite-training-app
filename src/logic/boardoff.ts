@@ -8,16 +8,19 @@ export interface BoardOffAssessment {
   deadHang: 'under20' | '20to30' | 'over30';
   tailGrab: boolean;            // sicherer Tail Grab im Sprung
   oneFooter: boolean;           // One Footer beidseitig
-  boardOffByFin: boolean;       // schon auf dem Wasser gefahren
+  boardOffByFin: boolean;       // Board Off by Fin schon auf dem Wasser gefahren
+  boardOffByHandle: boolean;    // Board Off by Handle schon auf dem Wasser gefahren
 }
 
 /**
  * Empfohlene Startstufe nach dem Entscheidungsbaum in
  * docs/training/board-off-progression.md (Abschnitt 3).
- * Stufe 5 wird nie automatisch empfohlen — sie läuft parallel zu 4.
+ * Stufe 5 nur, wenn der Board Off by Handle auf dem Wasser schon sitzt —
+ * sonst läuft sie parallel zu 4 und wird manuell dazugewählt.
  */
 export function recommendBoardOffLevel(a: BoardOffAssessment): number {
   if (!a.activeCompression || !a.longSit30s || a.deadHang === 'under20') return 0;
+  if (a.boardOffByHandle) return 5;
   if (a.boardOffByFin) return 4;
   if (a.oneFooter) return 3;
   if (a.tailGrab) return 2;

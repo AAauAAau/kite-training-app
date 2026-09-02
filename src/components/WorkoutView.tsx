@@ -809,7 +809,8 @@ const boardOffAssessmentQuestions: { key: keyof Omit<BoardOffAssessment, 'deadHa
   { key: 'shoulderFlexion', q: 'Rücken an der Wand, Arme gestreckt über Kopf: Handrücken berühren die Wand, Rippen unten?' },
   { key: 'tailGrab', q: 'Sitzt der Tail Grab im Sprung sicher?' },
   { key: 'oneFooter', q: 'Sitzt der One Footer beidseitig?' },
-  { key: 'boardOffByFin', q: 'Schon einen Board Off by Fin auf dem Wasser gefahren?' }
+  { key: 'boardOffByFin', q: 'Schon einen Board Off by Fin auf dem Wasser gefahren?' },
+  { key: 'boardOffByHandle', q: 'Schon einen Board Off by Handle auf dem Wasser gefahren?' }
 ];
 
 function BoardOffAssessmentForm({ onDone }: { onDone: (assessment: BoardOffAssessment) => void | Promise<void> }) {
@@ -818,7 +819,7 @@ function BoardOffAssessmentForm({ onDone }: { onDone: (assessment: BoardOffAsses
   const recommended = complete ? recommendBoardOffLevel(answers as BoardOffAssessment) : null;
   return (
     <div className="boardoff-assessment">
-      <section className="card"><p>Acht kurze Fragen bestimmen deine Startstufe. Später jederzeit in den Einstellungen änderbar.</p></section>
+      <section className="card"><p>Ein paar kurze Fragen bestimmen deine Startstufe. Später jederzeit in den Einstellungen änderbar.</p></section>
       {boardOffAssessmentQuestions.map(({ key, q }) => (
         <section className="card boardoff-question" key={key}>
           <p>{q}</p>

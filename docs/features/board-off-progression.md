@@ -28,7 +28,7 @@ Der Nutzer soll:
    Seed (geloggte Einheiten), verschwinden aber aus allen Stufen.
 2. **Interaktive Einstufung.** Beim ersten Öffnen von Board-Off (kein
    `settings.boardOffLevel` gesetzt) ein kurzer Fragebogen (4 körperliche
-   Selbsttests + 3 Skill-Fragen + Aufhängungs-Frage) → empfohlene Startstufe,
+   Selbsttests + 4 Skill-Fragen + Aufhängungs-Frage) → empfohlene Startstufe,
    gespeichert in `settings.boardOffLevel`. Danach manuell hoch/runter über den
    Picker. Einstufung jederzeit aus `SettingsView` wiederholbar.
 3. **Frage + Regression-Swap.** `settings.boardOffHasRig` (Teil der Einstufung,
@@ -56,6 +56,7 @@ Fragebogen beim ersten Board-Off-Aufruf, Reihenfolge:
 6. Sicherer **Tail Grab** im Sprung? (ja/nein)
 7. **One Footer** beidseitig? (ja/nein)
 8. **Board Off by Fin** auf dem Wasser schon gefahren? (ja/nein)
+9. **Board Off by Handle** auf dem Wasser schon gefahren? (ja/nein)
 
 `recommendBoardOffLevel` (siehe Logik) errechnet daraus 0–5. Ergebnis wird
 angezeigt („Empfohlen: Stufe 2 — hier startest du") und beim Bestätigen
@@ -193,6 +194,7 @@ export interface BoardOffAssessment {
   tailGrab: boolean;
   oneFooter: boolean;
   boardOffByFin: boolean;
+  boardOffByHandle: boolean;
 }
 
 // Empfohlene Startstufe nach dem Entscheidungsbaum (Abschnitt 3 des Docs).
@@ -205,12 +207,14 @@ export function boardOffLevelSlots(level: BoardOffLevel, hasRig: boolean): Board
 `recommendBoardOffLevel`:
 
 - `!activeCompression || !longSit30s || deadHang === 'under20'` → `0`
+- sonst `boardOffByHandle` → `5`
 - sonst `boardOffByFin` → `4`
 - sonst `oneFooter` → `3`
 - sonst `tailGrab` → `2`
 - sonst → `1`
 - `shoulderFlexion` fließt nicht in die Zahl ein (nur UI-Hinweis).
-- Stufe 5 wird nie automatisch empfohlen (parallel zu 4, erst nach Praxis).
+- Stufe 5 wird nur empfohlen, wenn der Board Off by Handle auf dem Wasser
+  schon sitzt — sonst läuft sie parallel zu 4 und wird manuell dazugewählt.
 
 `boardOffLevelSlots`: bei `hasRig` unverändert; sonst jeden `needsRig`-Slot
 durch seine `rigFreeAlternative` ersetzen (als vollwertiger Slot).
@@ -257,7 +261,7 @@ Tests in `src/logic/boardoff.test.ts`.
 
 `src/logic/boardoff.test.ts`:
 - `recommendBoardOffLevel`: harte Gates (Kompression, Langsitz, Dead Hang
-  < 20 s) → 0; Skill-Ketten → 1/2/3/4; `shoulderFlexion` ändert nichts.
+  < 20 s) → 0; Skill-Ketten → 1/2/3/4/5; `shoulderFlexion` ändert nichts.
 - `boardOffLevelSlots`: mit Rig unverändert; ohne Rig sind alle `needsRig`-
   Slots durch ihre Alternative ersetzt, Slot-Anzahl bleibt 4.
 
@@ -290,7 +294,7 @@ Alle sechs Schritte umgesetzt:
    `levelNeedsRig`) + `boardoff.test.ts`.
 3. `WorkoutView`: Picker auf `boardOffLevels`, `startBoardOffLevel` mit Rig-Swap,
    Regression-`<details>`, neue Setup-Karte mit Ampel.
-4. `BoardOffAssessmentForm` — 8-Fragen-Einstufung beim ersten Öffnen.
+4. `BoardOffAssessmentForm` — 9-Fragen-Einstufung beim ersten Öffnen.
 5. `SettingsView`-Abschnitt „Board-Off" (Stufe 0–5, Rig-Toggle,
    Einstufung wiederholen).
 6. `boardOffLevel` in `Session.save()` + „· Stufe N" in Log, Woche, Dashboard.
