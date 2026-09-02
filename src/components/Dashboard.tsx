@@ -104,7 +104,7 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
           <time className="dashboard-date" dateTime={today}>{formatShortDate(today)}</time>
         </div>
         <div className="dashboard-logo-wrap">
-          <img className="dashboard-logo" src={`${import.meta.env.BASE_URL}tl-kiteboarding-logo-mint.png`} alt="TL Kiteboarding · Straight Outta Mecklenburg" />
+          <img className="dashboard-logo" src={`${import.meta.env.BASE_URL}tl-kiteboarding-logo.png`} alt="TL Kiteboarding · Straight Outta Mecklenburg" />
         </div>
       </header>
 
