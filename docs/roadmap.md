@@ -12,6 +12,7 @@
 | 4 | Verletzungs-Modus | Idee |
 | 5 | Saison-Modus | Idee |
 | 6 | Plan-Generator | Idee |
+| 7 | Mehrsprachigkeit (DE/EN/FR) | In Planung → [Spec](features/i18n-en-fr.md) |
 
 Mögliche Zustände: `Idee`, `In Planung`, `In Arbeit`, `Umgesetzt`.
 
@@ -91,6 +92,14 @@ Verhindert die Verletzung, die typischerweise in Woche 1 nach Urlaub oder Krankh
 - Zeitlich begrenzt, mit Erinnerung zum Reaktivieren
 
 Beispiel unterer Rücken: Swings raus, Hip Thrust rein; Langhantelrudern → Seal Row.
+
+## 7. Mehrsprachigkeit (DE/EN/FR)
+
+Quer zur Individualisierung, aber unabhängig davon sinnvoll: dieselbe App auf
+Englisch (`en-GB`) und Französisch (`fr-FR`). Eigenes Mini-i18n, alle Kataloge im
+Bundle, Domain-Copy (Übungen, Templates, Board-Off) getrennt von der Seed-Struktur.
+Kein Backend, kein Nachladen, offline unverändert. Details in der
+[Spec](features/i18n-en-fr.md).
 
 ## Bewusst nicht bauen
 
