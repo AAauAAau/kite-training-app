@@ -346,7 +346,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         </button>
         <button className="template-card boardoff-card card" onClick={() => setBoardOffPicker(true)}>
           <span className="template-letter type-board_off">B</span>
-          <span><strong>Board-Off Drills</strong><small>Land-Progression · Stufe 0–4 · Last 1,0</small></span><ChevronIcon />
+          <span><strong>Board-Off Drills</strong><small>Trapez-Hang-Progression · Stufe 0–5 · Last 1,0</small></span><ChevronIcon />
         </button>
         <button className="template-card padel-card card" onClick={startPadel}>
           <span className="template-letter type-padel">P</span>
