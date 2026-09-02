@@ -809,8 +809,8 @@ const boardOffAssessmentQuestions: { key: keyof Omit<BoardOffAssessment, 'deadHa
   { key: 'shoulderFlexion', q: 'Rücken an der Wand, Arme gestreckt über Kopf: Handrücken berühren die Wand, Rippen unten?' },
   { key: 'tailGrab', q: 'Sitzt der Tail Grab im Sprung sicher?' },
   { key: 'oneFooter', q: 'Sitzt der One Footer beidseitig?' },
-  { key: 'boardOffByFin', q: 'Schon einen Board Off by Fin auf dem Wasser gefahren?' },
-  { key: 'boardOffByHandle', q: 'Schon einen Board Off by Handle auf dem Wasser gefahren?' }
+  { key: 'boardOffByFin', q: 'Sitzt der Board Off by Fin auf dem Wasser?' },
+  { key: 'boardOffByHandle', q: 'Sitzt der Board Off by Handle auf dem Wasser?' }
 ];
 
 function BoardOffAssessmentForm({ onDone }: { onDone: (assessment: BoardOffAssessment) => void | Promise<void> }) {
@@ -819,30 +819,35 @@ function BoardOffAssessmentForm({ onDone }: { onDone: (assessment: BoardOffAsses
   const recommended = complete ? recommendBoardOffLevel(answers as BoardOffAssessment) : null;
   return (
     <div className="boardoff-assessment">
-      <section className="card"><p>Ein paar kurze Fragen bestimmen deine Startstufe. Später jederzeit in den Einstellungen änderbar.</p></section>
-      {boardOffAssessmentQuestions.map(({ key, q }) => (
-        <section className="card boardoff-question" key={key}>
-          <p>{q}</p>
-          <div className="segmented">
-            <button type="button" className={answers[key] === true ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: true })}>Ja</button>
-            <button type="button" className={answers[key] === false ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: false })}>Nein</button>
+      <section className="card boardoff-assessment-intro">
+        <span className="eyebrow">So funktioniert's</span>
+        <p>Ein paar Fragen bestimmen deine Startstufe. Später jederzeit in den Einstellungen änderbar.</p>
+      </section>
+      <section className="card boardoff-questions">
+        {boardOffAssessmentQuestions.map(({ key, q }) => (
+          <div className="boardoff-question" key={key}>
+            <p>{q}</p>
+            <div className="segmented">
+              <button type="button" className={answers[key] === true ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: true })}>Ja</button>
+              <button type="button" className={answers[key] === false ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: false })}>Nein</button>
+            </div>
           </div>
-        </section>
-      ))}
-      <section className="card boardoff-question">
-        <p>Dead Hang beidhändig, passiv — wie lange hältst du?</p>
-        <div className="segmented">
-          {(['under20', '20to30', 'over30'] as const).map((value) => (
-            <button type="button" key={value} className={answers.deadHang === value ? 'selected' : ''} onClick={() => setAnswers({ ...answers, deadHang: value })}>
-              {value === 'under20' ? '< 20 s' : value === '20to30' ? '20–30 s' : '> 30 s'}
-            </button>
-          ))}
+        ))}
+        <div className="boardoff-question">
+          <p>Dead Hang beidhändig, passiv — wie lange hältst du?</p>
+          <div className="segmented">
+            {(['under20', '20to30', 'over30'] as const).map((value) => (
+              <button type="button" key={value} className={answers.deadHang === value ? 'selected' : ''} onClick={() => setAnswers({ ...answers, deadHang: value })}>
+                {value === 'under20' ? '< 20 s' : value === '20to30' ? '20–30 s' : '> 30 s'}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
       {recommended !== null && (
         <section className="card boardoff-recommendation">
           <span className="eyebrow">Empfehlung</span>
-          <strong>Stufe {recommended} · {boardOffLevels[recommended].label}</strong>
+          <h3>Stufe {recommended} · {boardOffLevels[recommended].label}</h3>
           <p>{recommended === 0 ? 'Erst das Fundament: Kompression, Langsitz-Haltung, Dead Hang.' : `Weiter zur nächsten Stufe mit: ${boardOffLevels[recommended].gate}`}</p>
           {answers.hasRig === false && <p className="muted">Ohne Aufhängung laufen die Trapez-Hang-Übungen als Bodenvariante.</p>}
           {answers.shoulderFlexion === false && <p className="muted">Schulterflexion eingeschränkt — Überkopf-Positionen zuerst mobilisieren.</p>}

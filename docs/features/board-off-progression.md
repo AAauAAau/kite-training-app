@@ -53,10 +53,10 @@ Fragebogen beim ersten Board-Off-Aufruf, Reihenfolge:
 4. **Schulterflexion**: Handrücken an der Wand, Rippen unten? (ja/nein, nur
    Hinweis — kein Gate)
 5. **Dead Hang** beidhändig: unter 20 s / 20–30 s / über 30 s
-6. Sicherer **Tail Grab** im Sprung? (ja/nein)
-7. **One Footer** beidseitig? (ja/nein)
-8. **Board Off by Fin** auf dem Wasser schon gefahren? (ja/nein)
-9. **Board Off by Handle** auf dem Wasser schon gefahren? (ja/nein)
+6. Sitzt der **Tail Grab** im Sprung sicher? (ja/nein)
+7. Sitzt der **One Footer** beidseitig? (ja/nein)
+8. Sitzt der **Board Off by Fin** auf dem Wasser? (ja/nein)
+9. Sitzt der **Board Off by Handle** auf dem Wasser? (ja/nein)
 
 `recommendBoardOffLevel` (siehe Logik) errechnet daraus 0–5. Ergebnis wird
 angezeigt („Empfohlen: Stufe 2 — hier startest du") und beim Bestätigen
