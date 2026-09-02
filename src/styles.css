@@ -158,6 +158,9 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .exercise-swap-button { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--muted); cursor: pointer; }
 .exercise-swap-button:active { color: var(--mint); border-color: var(--mint); }
 .set-table { padding: 0 10px 12px; }
+.autoregulation { padding: 0 16px 14px; }
+.autoregulation .eyebrow { display: block; margin-bottom: 6px; }
+.autoregulation .segmented { max-width: none; }
 .set-labels, .set-row { display: grid; grid-template-columns: 42px 1fr 1fr 48px; gap: 7px; align-items: center; text-align: center; }
 .set-labels.no-weight, .set-row.no-weight { grid-template-columns: 42px 1fr 48px; }
 .set-labels { color: #6f828c; font-size: .65rem; text-transform: uppercase; letter-spacing: .09em; min-height: 25px; }

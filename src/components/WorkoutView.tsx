@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { boardOffStages, mobilityChecklists, mobilityItems, templates } from '../data/seed';
 import { formatShortDate, localDate } from '../logic/date';
-import { comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
+import { autoregulatedKg, comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
+import type { AutoregulationFeedback } from '../logic/training';
 import { useAppStore } from '../store';
 import type { Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon, SwapIcon } from './Icons';
@@ -30,6 +31,8 @@ type Draft = {
   activityName?: string;
   manualLoad?: number;
   substitutions?: Record<string, string>;
+  autoregulation?: Record<string, AutoregulationFeedback>;
+  autoregulationManualSets?: Record<string, number[]>;
 };
 
 const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = [
@@ -123,12 +126,20 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   function updateSet(entryIndex: number, setIndex: number, next: SetLog) {
     if (!draft) return;
     const previous = draft.entries[entryIndex]?.sets[setIndex];
-    const exercise = exercises.find((item) => item.id === draft.entries[entryIndex]?.exerciseId);
+    const exerciseId = draft.entries[entryIndex]?.exerciseId;
+    const exercise = exercises.find((item) => item.id === exerciseId);
     const entries = draft.entries.map((entry, currentEntry) => currentEntry === entryIndex
       ? { ...entry, sets: entry.sets.map((set, currentSet) => currentSet === setIndex ? next : set) }
       : entry
     );
-    setDraft({ ...draft, entries });
+    let autoregulationManualSets = draft.autoregulationManualSets;
+    if (exerciseId && previous && next.kg !== previous.kg) {
+      const pinned = draft.autoregulationManualSets?.[exerciseId] ?? [];
+      if (!pinned.includes(setIndex)) {
+        autoregulationManualSets = { ...draft.autoregulationManualSets, [exerciseId]: [...pinned, setIndex] };
+      }
+    }
+    setDraft({ ...draft, entries, autoregulationManualSets });
     const restSec = exercise?.restSec ?? (exercise?.category === 'mobility' ? 0 : 90);
     if (previous?.successful !== true && next.successful === true && restSec > 0) {
       primeTimerAudio();
@@ -162,12 +173,36 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     const substitutions = { ...(draft.substitutions ?? {}) };
     delete substitutions[currentId];
     if (newExerciseId !== originalId) substitutions[newExerciseId] = originalId;
+    const autoregulation = { ...(draft.autoregulation ?? {}) };
+    const autoregulationManualSets = { ...(draft.autoregulationManualSets ?? {}) };
+    delete autoregulation[currentId];
+    delete autoregulationManualSets[currentId];
     setDraft({
       ...draft,
       entries: draft.entries.map((item, index) => index === entryIndex ? { exerciseId: newExerciseId, sets } : item),
-      substitutions
+      substitutions,
+      autoregulation,
+      autoregulationManualSets
     });
     setSubstituteIndex(null);
+  }
+
+  function applyAutoregulation(entryIndex: number, feedback: AutoregulationFeedback) {
+    if (!draft) return;
+    const entry = draft.entries[entryIndex];
+    const exercise = entry && exercises.find((item) => item.id === entry.exerciseId);
+    const baseKg = entry?.sets[0]?.kg;
+    if (!entry || !exercise || typeof baseKg !== 'number') return;
+    const targetKg = autoregulatedKg(baseKg, feedback, exercise);
+    const pinned = draft.autoregulationManualSets?.[entry.exerciseId] ?? [];
+    const sets = entry.sets.map((set, index) =>
+      index > 0 && set.successful === undefined && !pinned.includes(index) ? { ...set, kg: targetKg } : set
+    );
+    setDraft({
+      ...draft,
+      entries: draft.entries.map((item, index) => index === entryIndex ? { ...item, sets } : item),
+      autoregulation: { ...draft.autoregulation, [entry.exerciseId]: feedback }
+    });
   }
 
   async function controlChecklistTimer(label: string, sourceId: string, mode: 'countdown' | 'countup' | 'pace', seconds?: number) {
@@ -395,7 +430,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           const exercise = exercises.find((item) => item.id === entry.exerciseId);
           if (!exercise) return null;
           const target = startingTarget(exercise.id, sessionHistory, exercises, sessionDate);
-          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} comeback={comeback.active} note={draft.exerciseNotes[exercise.id]} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
+          return <ExerciseEditor key={exercise.id} exercise={exercise} entry={entry} target={target} comeback={comeback.active} note={draft.exerciseNotes[exercise.id]} autoregulation={draft.autoregulation?.[exercise.id]} onAutoregulate={(feedback) => applyAutoregulation(entryIndex, feedback)} update={(setIndex, set) => updateSet(entryIndex, setIndex, set)} onRequestSwap={() => setSubstituteIndex(entryIndex)} />;
         })}
       </div>}
 
@@ -537,11 +572,20 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
   );
 }
 
-function ExerciseEditor({ exercise, entry, target, comeback, note, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
+const autoregulationOptions: { value: AutoregulationFeedback; label: string }[] = [
+  { value: 'easy', label: 'Leicht' },
+  { value: 'ok', label: 'Passt' },
+  { value: 'hard', label: 'Schwer' }
+];
+
+function ExerciseEditor({ exercise, entry, target, comeback, note, autoregulation, onAutoregulate, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; autoregulation?: AutoregulationFeedback; onAutoregulate: (feedback: AutoregulationFeedback) => void; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
   const hasWeight = exercise.metric === 'weight_reps';
   const youtubeUrl = exercise.youtubeQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtubeQuery)}`
     : undefined;
+  const showAutoregulation = hasWeight && exercise.incrementKg !== 0
+    && entry.sets[0]?.successful === true && typeof entry.sets[0]?.kg === 'number'
+    && entry.sets.some((set, index) => index > 0 && set.successful === undefined);
   return (
     <section className="exercise-card card">
       <div className="exercise-header">
@@ -568,6 +612,18 @@ function ExerciseEditor({ exercise, entry, target, comeback, note, update, onReq
         <div className={`set-labels ${hasWeight ? '' : 'no-weight'}`}><span>Satz</span>{hasWeight && <span>kg</span>}<span>{exercise.metric === 'time' ? 'Sek.' : exercise.metric === 'distance' || exercise.id === 'suitcase-carry' ? 'Meter' : 'Wdh.'}</span><span>OK</span></div>
         {entry.sets.map((set, index) => <SetEditor key={index} index={index} exercise={exercise} set={set} update={(value) => update(index, value)} />)}
       </div>
+      {showAutoregulation && (
+        <div className="autoregulation">
+          <span className="eyebrow">Satz 1 – wie war's?</span>
+          <div className="segmented">
+            {autoregulationOptions.map((option) => (
+              <button key={option.value} type="button" className={autoregulation === option.value ? 'selected' : ''} aria-pressed={autoregulation === option.value} onClick={() => onAutoregulate(option.value)}>
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

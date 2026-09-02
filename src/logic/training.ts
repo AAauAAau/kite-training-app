@@ -5,6 +5,9 @@ export const COMEBACK_AFTER_DAYS = 21;
 export const COMEBACK_FACTOR = 0.8;
 const comebackSessionTypes: Session['type'][] = ['A', 'B', 'KB'];
 
+export const AUTOREGULATION_STEP = 0.075;
+export type AutoregulationFeedback = 'easy' | 'ok' | 'hard';
+
 export const lowerBackWarning = 'Rücken ist von gestern vorbelastet — Gewicht runter oder Tag B vorziehen.';
 export const kbWithoutStrengthWarning = 'Diese Woche keine schwere Beinarbeit — Pop und Landung kommen aus Tag A/B.';
 
@@ -56,6 +59,18 @@ export function sprintPrescription(week: number): { distance: number; intensity:
 
 function roundToIncrement(value: number, increment: number): number {
   return Math.round(value / increment) * increment;
+}
+
+/**
+ * Gewicht eines noch offenen Satzes nach dem Autoregulations-Feedback zu Satz 1.
+ * Verschiebt `baseKg` um ±AUTOREGULATION_STEP, gerundet auf den Increment der
+ * Übung. Session-lokal — `nextTarget()` bleibt unberührt.
+ */
+export function autoregulatedKg(baseKg: number, feedback: AutoregulationFeedback, exercise: Exercise): number {
+  if (feedback === 'ok') return baseKg;
+  const increment = exercise.incrementKg ?? 2.5;
+  const factor = feedback === 'easy' ? 1 + AUTOREGULATION_STEP : 1 - AUTOREGULATION_STEP;
+  return roundToIncrement(baseKg * factor, increment);
 }
 
 function weightAttempts(exerciseId: string, sessions: Session[]): (SetLog & { kg: number })[] {

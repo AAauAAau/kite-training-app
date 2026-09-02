@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Exercise, Session, Settings } from '../types';
-import { comebackState, deloadDue, lastLoggedSet, nextTarget, rollingLoad7d, schedule, sessionLoad, sprintWeek, startingTarget, strengthWarnings, weeklyStrengthWarning } from './training';
+import { autoregulatedKg, comebackState, deloadDue, lastLoggedSet, nextTarget, rollingLoad7d, schedule, sessionLoad, sprintWeek, startingTarget, strengthWarnings, weeklyStrengthWarning } from './training';
 
 const exercise: Exercise = { id: 'deadlift', name: 'Deadlift', category: 'strength', metric: 'weight_reps', incrementKg: 2.5 };
 const settings = { loadThreshold7d: 10 } as Settings;
@@ -188,6 +188,25 @@ describe('startingTarget', () => {
     const endurance: Exercise = { ...exercise, id: 'back-extension', incrementKg: 0 };
     const sessions = [session({ date: '2026-07-20', entries: [{ exerciseId: endurance.id, sets: [{ kg: 10, reps: 15 }] }] })];
     expect(startingTarget(endurance.id, sessions, [endurance], '2026-08-25')).toBeNull();
+  });
+});
+
+describe('autoregulatedKg', () => {
+  const swing: Exercise = { id: 'kb-swing', name: 'KB Swing', category: 'strength', metric: 'weight_reps', incrementKg: 4 };
+  it('leaves the weight untouched for "ok"', () => {
+    expect(autoregulatedKg(120, 'ok', exercise)).toBe(120);
+  });
+  it('shifts by ~7.5% rounded to the increment', () => {
+    expect(autoregulatedKg(120, 'easy', exercise)).toBe(130);
+    expect(autoregulatedKg(120, 'hard', exercise)).toBe(110);
+  });
+  it('rounds to a coarse increment', () => {
+    expect(autoregulatedKg(32, 'easy', swing)).toBe(36);
+    expect(autoregulatedKg(32, 'hard', swing)).toBe(28);
+  });
+  it('can round back to the base weight when the load is very light', () => {
+    expect(autoregulatedKg(8, 'easy', swing)).toBe(8);
+    expect(autoregulatedKg(8, 'hard', swing)).toBe(8);
   });
 });
 
