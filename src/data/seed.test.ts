@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { applyInjuryToSlots } from '../logic/injury';
+import type { BodyRegion } from '../types';
 import { boardOffLevels, exercises, mobilityChecklists, templates } from './seed';
 
 describe('training seed', () => {
@@ -24,6 +26,41 @@ describe('training seed', () => {
       .map((id) => exercises.find((exercise) => exercise.id === id))
       .filter((exercise) => exercise?.category === 'strength');
     expect(templated.filter((exercise) => !exercise?.pattern)).toEqual([]);
+  });
+
+  it('assigns an explicit strains list to every injury-mode exercise', () => {
+    const injuryModeIds = [
+      ...new Set([
+        ...templates.filter((template) => template.type !== 'RINGS').flatMap((template) => template.exercises.map((item) => item.exerciseId)),
+        ...boardOffLevels.flatMap((level) => level.slots.flatMap((slot) => [slot.exerciseId, slot.rigFreeAlternative?.exerciseId]))
+      ])
+    ].filter((id): id is string => Boolean(id));
+    const missing = injuryModeIds.filter((id) => exercises.find((exercise) => exercise.id === id)?.strains === undefined);
+    expect(missing).toEqual([]);
+  });
+
+  it('references only known exercise ids in strains-based swaps for every region', () => {
+    const ids = new Set(exercises.map((exercise) => exercise.id));
+    const regions: BodyRegion[] = ['lower-back', 'knee', 'shoulder', 'elbow-wrist', 'hip-groin', 'neck', 'ribs'];
+    for (const region of regions) {
+      for (const template of templates.filter((item) => item.type !== 'RINGS')) {
+        const slots = template.exercises.map((item) => ({ exerciseId: item.exerciseId }));
+        const { exerciseIds, swaps, dropped } = applyInjuryToSlots(slots, exercises, [region]);
+        expect(exerciseIds.length + dropped.length).toBe(slots.length);
+        expect(swaps.every((swap) => ids.has(swap.to))).toBe(true);
+        expect(dropped.some((id) => exerciseIds.includes(id))).toBe(false);
+      }
+    }
+  });
+
+  it('keeps at least the two main lifts of Tag A and Tag B trainable under any single injury', () => {
+    const regions: BodyRegion[] = ['lower-back', 'knee', 'shoulder', 'elbow-wrist', 'hip-groin', 'neck', 'ribs'];
+    for (const region of regions) {
+      for (const type of ['A', 'B'] as const) {
+        const slots = templates.find((template) => template.type === type)!.exercises.map((item) => ({ exerciseId: item.exerciseId }));
+        expect(applyInjuryToSlots(slots, exercises, [region]).exerciseIds.length).toBeGreaterThanOrEqual(2);
+      }
+    }
   });
 
   it('keeps lower-back endurance unweighted and both distinct plank patterns', () => {

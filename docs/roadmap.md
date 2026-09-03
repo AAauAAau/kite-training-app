@@ -9,7 +9,7 @@
 | 1 | Übungs-Substitution | Umgesetzt → [Spec](features/exercise-substitution.md) |
 | 2 | Wiedereinstieg nach Pause | Umgesetzt → [Spec](features/comeback-after-break.md) |
 | 3 | Autoregulation statt fixer Progression | Umgesetzt → [Spec](features/autoregulation.md) |
-| 4 | Verletzungs-Modus | Idee |
+| 4 | Verletzungs-Modus | Umgesetzt → [Spec](features/injury-mode.md) |
 | 5 | Saison-Modus | Idee |
 | 6 | Plan-Generator | Idee |
 | 7 | Mehrsprachigkeit (DE/EN/FR) | In Planung → [Spec](features/i18n-en-fr.md) |

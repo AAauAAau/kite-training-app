@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
-import { formatShortDate, localDate } from '../logic/date';
+import { addDays, daysBetween, formatShortDate, localDate } from '../logic/date';
 import { mobilityChecklists } from '../data/seed';
+import { bodyRegionLabels, injuryState } from '../logic/injury';
 import { deloadDue, sessionLoad, weeklyStrengthWarning } from '../logic/training';
+import type { BodyRegion } from '../types';
 import { useAppStore } from '../store';
 import type { ChecklistItem, KiteIntensity, RingsArea, RingsSkill, Session } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, WindIcon } from './Icons';
@@ -15,7 +17,7 @@ const ringsAreaLabels: Record<RingsArea, string> = { mobility: 'Mobility', upper
 const ringsSkillLabels: Record<RingsSkill, string> = { 'ring-muscle-up': 'Ring Muscle-up', 'l-sit': 'L-Sit', 'side-split': 'Side Split', 'pistol-squat': 'Pistol Squat' };
 
 export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKiteLogged: (sessionId: string) => void }) {
-  const { sessions, settings, activeTimer, addSession, updateSession, deleteSession, dismissDeload, startTimer, stopTimer } = useAppStore();
+  const { sessions, settings, activeTimer, addSession, updateSession, deleteSession, dismissDeload, updateSettings, startTimer, stopTimer } = useAppStore();
   const [quickKite, setQuickKite] = useState<Session | null>(null);
   const [kiteDate, setKiteDate] = useState(localDate());
   const [intensitySaved, setIntensitySaved] = useState(false);
@@ -31,6 +33,18 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
   );
   const morningDone = morningSession?.mobilityDone?.filter((id) => id.startsWith('morning-')).length ?? 0;
   const strengthWarning = weeklyStrengthWarning(today, sessions);
+  const injury = injuryState(settings, today);
+  const runningInjuries = (settings.injuries ?? []).filter((item) => item.since <= today && item.until >= today);
+
+  async function endInjury(region: BodyRegion) {
+    await updateSettings({ injuries: (settings.injuries ?? []).filter((item) => item.region !== region) });
+  }
+
+  async function extendInjury(region: BodyRegion) {
+    await updateSettings({
+      injuries: (settings.injuries ?? []).map((item) => item.region === region ? { ...item, until: addDays(today, 14) } : item)
+    });
+  }
 
   async function logKite() {
     const session: Session = { id: crypto.randomUUID(), date: kiteDate, type: 'KITE', entries: [], intensity: 'normal', createdAt: Date.now() };
@@ -117,6 +131,30 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
 
       {strengthWarning && (
         <section className="alert-card subtle"><AlertIcon /><div><strong>Bein-Kraft im Blick behalten</strong><p>{strengthWarning}</p></div></section>
+      )}
+
+      {injury.expired.map((item) => (
+        <section className="alert-card" key={item.region}>
+          <AlertIcon />
+          <div>
+            <strong>Schonung {bodyRegionLabels[item.region]} ist abgelaufen.</strong>
+            <p>Wieder voll belasten oder verlängern? Bis dahin bleibt die Anpassung in Tag A/B/KB und Board-Off aktiv.</p>
+            <div className="injury-reminder-actions">
+              <button className="text-button" onClick={() => void endInjury(item.region)}>Beenden</button>
+              <button className="text-button" onClick={() => void extendInjury(item.region)}>+2 Wochen</button>
+            </div>
+          </div>
+        </section>
+      ))}
+
+      {runningInjuries.length > 0 && (
+        <section className="alert-card subtle">
+          <AlertIcon />
+          <div>
+            <strong>Schonung aktiv</strong>
+            <p>{runningInjuries.map((item) => `${bodyRegionLabels[item.region]} · noch ${daysBetween(today, item.until)} Tage`).join(' · ')}</p>
+          </div>
+        </section>
       )}
 
       <section className="hero-card">

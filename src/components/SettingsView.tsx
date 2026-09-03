@@ -1,14 +1,22 @@
 import { useRef, useState } from 'react';
 import { exportBackup } from '../db';
-import { localDate } from '../logic/date';
+import { addDays, daysBetween, formatShortDate, localDate } from '../logic/date';
+import { bodyRegionLabels, injuryState, selectableBodyRegions } from '../logic/injury';
 import { useAppStore } from '../store';
+import type { BodyRegion } from '../types';
 
 export function SettingsView() {
   const { settings, addBodyweight, updateSettings, restoreBackup, sessions } = useAppStore();
   const [weight, setWeight] = useState(settings.bodyweightLog.at(-1)?.kg.toString() ?? '86');
   const [focusTag, setFocusTag] = useState('');
   const [message, setMessage] = useState('');
+  const [injuryRegion, setInjuryRegion] = useState<BodyRegion | null>(null);
+  const [injuryDays, setInjuryDays] = useState(14);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const today = localDate();
+  const injuries = [...(settings.injuries ?? [])].sort((a, b) => a.until.localeCompare(b.until));
+  const expiredRegions = new Set(injuryState(settings, today).expired.map((injury) => injury.region));
 
   async function saveWeight() {
     const kg = Number(weight.replace(',', '.'));
@@ -64,6 +72,21 @@ export function SettingsView() {
     setMessage(`„${tag}“ aus der Auswahlliste entfernt.`);
   }
 
+  async function startInjury() {
+    if (!injuryRegion) return;
+    const since = today;
+    const until = addDays(since, injuryDays - 1);
+    const next = [...(settings.injuries ?? []).filter((injury) => injury.region !== injuryRegion), { region: injuryRegion, since, until }];
+    await updateSettings({ injuries: next });
+    setMessage(`Schonung ${bodyRegionLabels[injuryRegion]} bis ${formatShortDate(until)} gespeichert.`);
+    setInjuryRegion(null);
+  }
+
+  async function endInjury(region: BodyRegion) {
+    await updateSettings({ injuries: (settings.injuries ?? []).filter((injury) => injury.region !== region) });
+    setMessage(`Schonung ${bodyRegionLabels[region]} beendet.`);
+  }
+
   return (
     <main className="page settings-page">
       <header className="page-header"><div><span className="eyebrow">Lokal auf diesem Gerät</span><h1>Einstellungen</h1></div></header>
@@ -102,6 +125,49 @@ export function SettingsView() {
           <button className="secondary" onClick={() => { void updateSettings({ boardOffLevel: undefined }); setMessage('Einstufung zurückgesetzt — beim nächsten Board-Off-Start neu.'); }}>Einstufung wiederholen</button>
         </section>
       )}
+      <section className="settings-card card">
+        <span className="eyebrow">Schonung</span><h2>Verletzung / gereizte Region</h2>
+        <p>Betroffene Übungen werden in Tag A/B/KB und Board-Off automatisch getauscht oder ausgelassen. Kein medizinischer Rat.</p>
+        {injuries.length > 0 && (
+          <div className="injury-list">
+            {injuries.map((injury) => {
+              const remaining = daysBetween(today, injury.until);
+              const expired = expiredRegions.has(injury.region);
+              return (
+                <div key={injury.region}>
+                  <span>
+                    <b>{bodyRegionLabels[injury.region]}</b>
+                    <small className={expired ? 'injury-expired' : undefined}>
+                      {expired ? 'abgelaufen — Entscheidung fällig' : remaining === 0 ? 'endet heute' : `noch ${remaining} Tage`}
+                    </small>
+                  </span>
+                  <button onClick={() => void endInjury(injury.region)}>Beenden</button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="injury-region-picker">
+          {selectableBodyRegions.map((region) => (
+            <button
+              key={region}
+              className={injuryRegion === region ? 'selected' : ''}
+              aria-pressed={injuryRegion === region}
+              onClick={() => setInjuryRegion(injuryRegion === region ? null : region)}
+            >{bodyRegionLabels[region]}</button>
+          ))}
+        </div>
+        <div className="segmented">
+          {[7, 14, 28].map((days) => (
+            <button key={days} className={injuryDays === days ? 'selected' : ''} aria-pressed={injuryDays === days} onClick={() => setInjuryDays(days)}>
+              {days === 7 ? '1 Woche' : `${days / 7} Wochen`}
+            </button>
+          ))}
+        </div>
+        <button className="primary" disabled={!injuryRegion} onClick={() => void startInjury()}>
+          {injuryRegion ? `Schonung ${bodyRegionLabels[injuryRegion]} starten` : 'Region wählen'}
+        </button>
+      </section>
       <section className="settings-card card">
         <span className="eyebrow">Kite-Log</span><h2>Skill-Tags</h2>
         <p>Diese Tags stehen in den optionalen Kite-Details zur Auswahl. Bereits geloggte Tags bleiben beim Entfernen erhalten.</p>

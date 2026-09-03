@@ -56,6 +56,15 @@ export type MovementPattern =
 export type Equipment =
   | 'barbell' | 'dumbbell' | 'kettlebell' | 'machine' | 'bodyweight' | 'band' | 'rings';
 
+export type BodyRegion =
+  | 'lower-back' | 'knee' | 'shoulder' | 'elbow-wrist' | 'hip-groin' | 'neck' | 'ribs' | 'ankle';
+
+export interface Injury {
+  region: BodyRegion;
+  since: string;   // ISO-Datum, Beginn
+  until: string;   // ISO-Datum, voraussichtliches Ende (inklusiv)
+}
+
 export interface Exercise {
   id: string;
   name: string;
@@ -68,6 +77,7 @@ export interface Exercise {
   youtubeQuery?: string;
   pattern?: MovementPattern;
   equipment?: Equipment;
+  strains?: BodyRegion[];   // Regionen unter nennenswerter Last; nur für den Verletzungs-Modus
 }
 
 export interface ActiveTimer {
@@ -96,6 +106,7 @@ export interface Settings {
   kiteFocusTags: string[];
   boardOffLevel?: number;
   boardOffHasRig?: boolean;
+  injuries?: Injury[];
 }
 
 export interface TemplateExercise {

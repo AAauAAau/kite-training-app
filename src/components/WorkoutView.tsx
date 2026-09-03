@@ -5,8 +5,9 @@ import { boardOffLevelSlots, levelNeedsRig, recommendBoardOffLevel } from '../lo
 import type { BoardOffAssessment } from '../logic/boardoff';
 import { autoregulatedKg, comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
 import type { AutoregulationFeedback } from '../logic/training';
+import { applyInjuryToSlots, bodyRegionLabels, injurySessionTypes, injuryState } from '../logic/injury';
 import { useAppStore } from '../store';
-import type { BoardOffLevel, Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
+import type { BodyRegion, BoardOffLevel, Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon, SwapIcon } from './Icons';
 import { SessionDatePicker } from './SessionDatePicker';
 import { SubstitutionSheet } from './SubstitutionSheet';
@@ -37,6 +38,7 @@ type Draft = {
   autoregulationManualSets?: Record<string, number[]>;
   boardOffLevel?: number;
   boardOffRegressions?: Record<string, string>;
+  injuryAdjustments?: { regions: BodyRegion[]; swaps: { from: string; to: string }[]; dropped: string[] };
 };
 
 const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = [
@@ -45,6 +47,10 @@ const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = 
   { value: 'legs', label: 'Bodyweight Legs', detail: 'Beintraining' },
   { value: 'skills', label: 'Skill-Training', detail: 'Technik & Progression' }
 ];
+
+function exerciseName(exercises: Exercise[], id: string): string {
+  return exercises.find((exercise) => exercise.id === id)?.name ?? id;
+}
 
 const ringsSkillOptions: { value: RingsSkill; label: string }[] = [
   { value: 'ring-muscle-up', label: 'Ring Muscle-up' },
@@ -64,9 +70,24 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const sessionHistory = sessions.filter((session) => session.date <= sessionDate);
   const week = sprintWeek(sessionHistory);
   const comeback = comebackState(sessionHistory, sessionDate);
+  const injury = injuryState(settings, sessionDate);
+
+  function injuryHint(swaps: { from: string; to: string }[], dropped: string[]) {
+    return swaps.length || dropped.length
+      ? { regions: injury.blockedRegions, swaps, dropped }
+      : undefined;
+  }
 
   function startTemplate(template: SessionTemplate) {
-    const entries = template.exercises.map((item) => {
+    const adjustment = injury.blockedRegions.length && injurySessionTypes.includes(template.type)
+      ? applyInjuryToSlots(template.exercises, exercises, injury.blockedRegions)
+      : { swaps: [], dropped: [] };
+    const swapMap = new Map(adjustment.swaps.map((swap) => [swap.from, swap.to]));
+    const droppedSet = new Set(adjustment.dropped);
+    const slots = template.exercises
+      .filter((item) => !droppedSet.has(item.exerciseId))
+      .map((item) => ({ ...item, exerciseId: swapMap.get(item.exerciseId) ?? item.exerciseId }));
+    const entries = slots.map((item) => {
       const exercise = exercises.find((candidate) => candidate.id === item.exerciseId);
       const previous = lastLoggedSet(item.exerciseId, sessionHistory);
       const start = comeback.active ? startingTarget(item.exerciseId, sessionHistory, exercises, sessionDate) : null;
@@ -86,7 +107,13 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       type: template.type,
       title: template.title,
       entries,
-      exerciseNotes: Object.fromEntries(template.exercises.filter((item) => item.note).map((item) => [item.exerciseId, item.note!])),
+      exerciseNotes: Object.fromEntries(
+        template.exercises
+          .filter((item) => item.note && !swapMap.has(item.exerciseId) && !droppedSet.has(item.exerciseId))
+          .map((item) => [item.exerciseId, item.note!])
+      ),
+      substitutions: Object.fromEntries(adjustment.swaps.map((swap) => [swap.to, swap.from])),
+      injuryAdjustments: injuryHint(adjustment.swaps, adjustment.dropped),
       mobilityDone: [],
       note: ''
     });
@@ -94,7 +121,12 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   }
 
   function startBoardOffLevel(level: BoardOffLevel) {
-    const slots = boardOffLevelSlots(level, boardOffHasRig);
+    const allSlots = boardOffLevelSlots(level, boardOffHasRig);
+    const dropped = injury.blockedRegions.length
+      ? applyInjuryToSlots(allSlots, exercises, injury.blockedRegions).dropped
+      : [];
+    const droppedSet = new Set(dropped);
+    const slots = allSlots.filter((slot) => !droppedSet.has(slot.exerciseId));
     const entries = slots.map((slot) => {
       const exercise = exercises.find((candidate) => candidate.id === slot.exerciseId);
       return {
@@ -113,6 +145,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       entries,
       exerciseNotes: Object.fromEntries(slots.map((slot) => [slot.exerciseId, slot.mistake])),
       boardOffRegressions: Object.fromEntries(slots.map((slot) => [slot.exerciseId, slot.regression])),
+      injuryAdjustments: injuryHint([], dropped),
       boardOffLevel: level.level,
       mobilityDone: [],
       note: ''
@@ -390,6 +423,24 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           <div>
             <strong>Wiedereinstieg nach Pause</strong>
             <p>{comeback.reason} Typisch nach Urlaub oder Krankheit — erste Einheit bewusst leicht, danach normal weiter.</p>
+          </div>
+        </section>
+      )}
+
+      {draft.injuryAdjustments && (
+        <section className="alert-card subtle">
+          <AlertIcon />
+          <div>
+            <strong>Schonung {draft.injuryAdjustments.regions.map((region) => bodyRegionLabels[region]).join(', ')}</strong>
+            <p>
+              {[
+                ...draft.injuryAdjustments.swaps.map((swap) => `${exerciseName(exercises, swap.from)} → ${exerciseName(exercises, swap.to)}`),
+                ...draft.injuryAdjustments.dropped.map((id) => `${exerciseName(exercises, id)} entfällt`)
+              ].join(' · ')}
+            </p>
+            {draft.type === 'BOARD_OFF' && draft.entries.length < 2 && (
+              <p>Diese Stufe ist mit der aktuellen Schonung kaum sinnvoll.</p>
+            )}
           </div>
         </section>
       )}
