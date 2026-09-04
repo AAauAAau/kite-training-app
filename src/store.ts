@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { db, importBackup, seedDatabase } from './db';
 import { defaultSettings } from './data/seed';
+import { detectLang, setLang } from './i18n';
 import { addDays, isLoggableDate, localDate } from './logic/date';
-import type { ActiveTimer, Exercise, Feel, Session, Settings } from './types';
+import type { ActiveTimer, Exercise, Feel, Lang, Session, Settings } from './types';
 
 interface AppState {
   ready: boolean;
@@ -37,6 +38,28 @@ function assertLoggableDate(date: string): void {
   if (!isLoggableDate(date)) throw new Error('Sessions können nicht in der Zukunft liegen.');
 }
 
+function browserLanguages(): readonly string[] {
+  if (typeof navigator === 'undefined') return [];
+  return navigator.languages ?? (navigator.language ? [navigator.language] : []);
+}
+
+/** Aktive Sprache anwenden: i18n-Modulstate + `<html lang>`. */
+function applyLang(lang: Lang): void {
+  setLang(lang);
+  if (typeof document !== 'undefined') document.documentElement.lang = lang;
+}
+
+/**
+ * Sprache aus den Settings ableiten. Fehlt `settings.lang`, wird sie aus
+ * `navigator.languages` bestimmt und direkt persistiert, damit Backups sie tragen.
+ */
+async function resolveLanguage(settings: Settings): Promise<Settings> {
+  if (settings.lang) return settings;
+  const withLang = { ...settings, lang: detectLang(browserLanguages()) };
+  await db.settings.put(withLang);
+  return withLang;
+}
+
 function byDateDescending(a: Session, b: Session): number {
   return b.date.localeCompare(a.date);
 }
@@ -49,7 +72,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeTimer: null,
   initialize: async () => {
     await seedDatabase();
-    set({ ...(await readAll()), ready: true });
+    const state = await readAll();
+    const settings = await resolveLanguage(state.settings);
+    applyLang(settings.lang!);
+    set({ ...state, settings, ready: true });
   },
   addSession: async (session) => {
     assertLoggableDate(session.date);
@@ -82,12 +108,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   updateSettings: async (patch) => {
     const settings = { ...get().settings, ...patch };
     await db.settings.put(settings);
+    if (patch.lang) applyLang(patch.lang);
     set({ settings });
   },
   restoreBackup: async (data) => {
     await importBackup(data);
     await seedDatabase();
-    set(await readAll());
+    const state = await readAll();
+    const settings = await resolveLanguage(state.settings);
+    applyLang(settings.lang!);
+    set({ ...state, settings });
   },
   startTimer: async (timer) => {
     const activeTimer: ActiveTimer = { ...timer, id: 'active', startedAt: Date.now() };

@@ -1,23 +1,25 @@
 import { useMemo, useState } from 'react';
+import { plural, t } from '../i18n';
+import { feelKey, kiteIntensityKey, ringsAreaKey, ringsSkillKey, sessionTypeKey } from '../i18n/enums';
+import { useLang } from '../i18n/react';
 import { addDays, daysBetween, formatShortDate, localDate } from '../logic/date';
+import { formatLoad, localeFor } from '../logic/format';
 import { mobilityChecklists } from '../data/seed';
-import { bodyRegionLabels, injuryState } from '../logic/injury';
+import { bodyRegionLabel, injuryState } from '../logic/injury';
+import { localizeMobility } from '../logic/localize';
 import { deloadDue, sessionLoad, weeklyStrengthWarning } from '../logic/training';
-import type { BodyRegion } from '../types';
+import type { BodyRegion, Lang } from '../types';
 import { useAppStore } from '../store';
-import type { ChecklistItem, KiteIntensity, RingsArea, RingsSkill, Session } from '../types';
+import type { ChecklistItem, KiteIntensity, Session } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, WindIcon } from './Icons';
 import { KiteDetailsEditor } from './KiteDetailsEditor';
 import { LoadSparkline } from './LoadSparkline';
 import { SessionDatePicker } from './SessionDatePicker';
 import { primeTimerAudio } from './TimerDock';
 
-const labels: Record<string, string> = { A: 'Tag A', B: 'Tag B', RINGS: 'Ringe', SPRINT: 'Sprint', KITE: 'Kite', PADEL: 'Padel Tennis', KB: 'Kettlebell', MOBILITY: 'Mobility', BOARD_OFF: 'Board-Off Drills', OTHER: 'Andere Aktivität' };
-const ringsAreaLabels: Record<RingsArea, string> = { mobility: 'Mobility', upper: 'Oberkörper', legs: 'Legs', skills: 'Skills' };
-const ringsSkillLabels: Record<RingsSkill, string> = { 'ring-muscle-up': 'Ring Muscle-up', 'l-sit': 'L-Sit', 'side-split': 'Side Split', 'pistol-squat': 'Pistol Squat' };
-
 export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKiteLogged: (sessionId: string) => void }) {
   const { sessions, settings, activeTimer, addSession, updateSession, deleteSession, dismissDeload, updateSettings, startTimer, stopTimer } = useAppStore();
+  const lang = useLang();
   const [quickKite, setQuickKite] = useState<Session | null>(null);
   const [kiteDate, setKiteDate] = useState(localDate());
   const [intensitySaved, setIntensitySaved] = useState(false);
@@ -27,7 +29,8 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
   const todaySessions = sessions.filter((session) => session.date === today);
   const todayActivities = todaySessions.filter((session) => !isMorningRoutine(session));
   const activeKite = (quickKite?.date === kiteDate ? quickKite : null) ?? sessions.find((session) => session.date === kiteDate && session.type === 'KITE') ?? null;
-  const morning = mobilityChecklists.find((template) => template.variant === 'morning')!;
+  const morningTemplate = mobilityChecklists.find((template) => template.variant === 'morning')!;
+  const morning = localizeMobility(morningTemplate, lang);
   const morningSession = todaySessions.find((session) =>
     isMorningRoutine(session)
   );
@@ -68,7 +71,7 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
   }
 
   async function removeKite() {
-    if (!activeKite || !window.confirm('Kitetag wirklich entfernen?')) return;
+    if (!activeKite || !window.confirm(t('dashboard.removeKiteConfirm'))) return;
     await deleteSession(activeKite.id);
     setQuickKite(null);
     setIntensitySaved(false);
@@ -85,7 +88,7 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
     } else {
       await addSession({
         id: `morning-${today}`, date: today, type: 'MOBILITY', entries: [], mobilityDone,
-        durationMin: morning.durationMin, note: morning.title, createdAt: Date.now()
+        durationMin: morningTemplate.durationMin, note: morningTemplate.title, createdAt: Date.now()
       });
     }
   }
@@ -114,34 +117,34 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
       <header className="page-header dashboard-header">
         <div className="dashboard-title">
           <span className="eyebrow">Kite Strength</span>
-          <h1>Heute</h1>
-          <time className="dashboard-date" dateTime={today}>{formatShortDate(today)}</time>
+          <h1>{t('dashboard.title')}</h1>
+          <time className="dashboard-date" dateTime={today}>{formatShortDate(today, localeFor(lang))}</time>
         </div>
         <div className="dashboard-logo-wrap">
           <img className="dashboard-logo" src={`${import.meta.env.BASE_URL}tl-kiteboarding-logo.png`} alt="TL Kiteboarding · Straight Outta Mecklenburg" />
         </div>
       </header>
 
-      {due.due && !dismissed && (
+      {due.due && due.reason && !dismissed && (
         <section className="alert-card">
           <AlertIcon />
-          <div><strong>Deload wäre klug.</strong><p>{due.reason}</p><button className="text-button" onClick={dismissDeload}>7 Tage ausblenden</button></div>
+          <div><strong>{t('dashboard.deloadTitle')}</strong><p>{t(due.reason.key, due.reason.params)}</p><button className="text-button" onClick={dismissDeload}>{t('common.hideSevenDays')}</button></div>
         </section>
       )}
 
       {strengthWarning && (
-        <section className="alert-card subtle"><AlertIcon /><div><strong>Bein-Kraft im Blick behalten</strong><p>{strengthWarning}</p></div></section>
+        <section className="alert-card subtle"><AlertIcon /><div><strong>{t('dashboard.legStrengthTitle')}</strong><p>{t(strengthWarning.key, strengthWarning.params)}</p></div></section>
       )}
 
       {injury.expired.map((item) => (
         <section className="alert-card" key={item.region}>
           <AlertIcon />
           <div>
-            <strong>Schonung {bodyRegionLabels[item.region]} ist abgelaufen.</strong>
-            <p>Wieder voll belasten oder verlängern? Bis dahin bleibt die Anpassung in Tag A/B/KB und Board-Off aktiv.</p>
+            <strong>{t('dashboard.injuryExpiredTitle', { region: t(bodyRegionLabel(item.region)) })}</strong>
+            <p>{t('dashboard.injuryExpiredBody')}</p>
             <div className="injury-reminder-actions">
-              <button className="text-button" onClick={() => void endInjury(item.region)}>Beenden</button>
-              <button className="text-button" onClick={() => void extendInjury(item.region)}>+2 Wochen</button>
+              <button className="text-button" onClick={() => void endInjury(item.region)}>{t('common.end')}</button>
+              <button className="text-button" onClick={() => void extendInjury(item.region)}>{t('common.plusTwoWeeks')}</button>
             </div>
           </div>
         </section>
@@ -151,34 +154,38 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
         <section className="alert-card subtle">
           <AlertIcon />
           <div>
-            <strong>Schonung aktiv</strong>
-            <p>{runningInjuries.map((item) => `${bodyRegionLabels[item.region]} · noch ${daysBetween(today, item.until)} Tage`).join(' · ')}</p>
+            <strong>{t('dashboard.injuryActiveTitle')}</strong>
+            <p>{runningInjuries.map((item) => {
+              const days = daysBetween(today, item.until);
+              const remaining = plural(days, { one: t('common.daysRemainingOne'), other: t('common.daysRemainingOther', { n: days }) });
+              return t('dashboard.injuryActiveItem', { region: t(bodyRegionLabel(item.region)), remaining });
+            }).join(' · ')}</p>
           </div>
         </section>
       )}
 
       <section className="hero-card">
         <div className="hero-kite"><WindIcon size={42} /></div>
-        <span className="eyebrow">Wind schlägt Plan</span>
-        <h2>Kitetag?</h2>
-        <p>Ein Tap. Ist sofort in deiner Trainingslast.</p>
+        <span className="eyebrow">{t('dashboard.heroEyebrow')}</span>
+        <h2>{t('dashboard.heroTitle')}</h2>
+        <p>{t('dashboard.heroBody')}</p>
         <SessionDatePicker value={kiteDate} onChange={setKiteDate} />
         <button className="primary kite-button" onClick={logKite}>
-          <WindIcon /> {activeKite ? 'Weitere Kite-Session loggen' : 'Kite loggen'}
+          <WindIcon /> {activeKite ? t('dashboard.logKiteMore') : t('dashboard.logKite')}
         </button>
         {activeKite && (
           <>
             <div className="intensity-picker compact">
-              <span>Wie intensiv?</span>
+              <span>{t('dashboard.intensityQuestion')}</span>
               <div className="segmented">
                 {(['chill', 'normal', 'hard'] as KiteIntensity[]).map((value) => (
-                  <button key={value} className={activeKite.intensity === value ? 'selected' : ''} onClick={() => setIntensity(value)}>{value === 'chill' ? 'Chill' : value === 'normal' ? 'Normal' : 'Hart'}</button>
+                  <button key={value} className={activeKite.intensity === value ? 'selected' : ''} onClick={() => setIntensity(value)}>{t(kiteIntensityKey(value))}</button>
                 ))}
               </div>
               <small className={`autosave-hint ${intensitySaved ? 'confirmed' : ''}`} role="status">
-                <CheckIcon /> {intensitySaved ? 'Gespeichert' : 'Wird automatisch gespeichert'}
+                <CheckIcon /> {intensitySaved ? t('common.autosaveSaved') : t('common.autosaveIdle')}
               </small>
-              <button className="remove-kite" onClick={removeKite}>Diese Session entfernen</button>
+              <button className="remove-kite" onClick={removeKite}>{t('dashboard.removeSession')}</button>
             </div>
             <KiteDetailsEditor details={activeKite.kite} focusTags={settings.kiteFocusTags} onChange={setKiteDetails} />
           </>
@@ -187,11 +194,11 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
 
       <details className="mobility-card morning-card card">
         <summary>
-          <span><span className="eyebrow">Täglich · ca. {morning.durationMin} min</span><strong>{morning.title}</strong></span>
+          <span><span className="eyebrow">{t('dashboard.morningEyebrow', { min: morning.durationMin })}</span><strong>{morning.title}</strong></span>
           <span className={morningDone === morning.items.length ? 'routine-progress complete' : 'routine-progress'}>{morningDone}/{morning.items.length}</span>
         </summary>
         <div className="morning-content">
-          <p className="morning-safety">Morgens keine tiefe Vorbeuge mit rundem Rücken. Down Dog bleibt unbelastet.</p>
+          <p className="morning-safety">{t('dashboard.morningSafety')}</p>
           {morning.items.map((item) => {
             const checked = morningSession?.mobilityDone?.includes(item.id) ?? false;
             const timerActive = activeTimer?.sourceId === `morning-${today}-${item.id}`;
@@ -203,9 +210,9 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
                 {item.timerSec && (
                   <button
                     className={`morning-item-timer ${timerActive ? 'active' : ''}`}
-                    aria-label={timerActive ? `${item.label}: Timer stoppen` : `${item.label}: ${item.timerSec} Sekunden Timer starten`}
+                    aria-label={timerActive ? t('dashboard.morningTimerStopAria', { label: item.label }) : t('dashboard.morningTimerStartAria', { label: item.label, sec: item.timerSec })}
                     onClick={() => void controlMorningTimer(item)}
-                  >{timerActive ? 'Stop' : item.timerMode === 'pace' ? `${item.timerSec} s Tempo` : `${item.timerSec} s`}</button>
+                  >{timerActive ? t('common.timerStop') : item.timerMode === 'pace' ? t('common.timerPace', { sec: item.timerSec }) : t('common.timerSeconds', { sec: item.timerSec })}</button>
                 )}
               </div>
             );
@@ -213,21 +220,21 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
         </div>
       </details>
 
-      <div className="section-heading"><h2>Heute</h2><button className="text-button" onClick={onTrain}>Training starten <ChevronIcon /></button></div>
+      <div className="section-heading"><h2>{t('dashboard.sectionToday')}</h2><button className="text-button" onClick={onTrain}>{t('dashboard.startTraining')} <ChevronIcon /></button></div>
       {todayActivities.length ? (
         <div className="session-list">
-          {todayActivities.map((session) => <SessionRow key={session.id} session={session} />)}
+          {todayActivities.map((session) => <SessionRow key={session.id} session={session} lang={lang} />)}
         </div>
       ) : (
-        <button className="empty-card" onClick={onTrain}><span>Noch nichts geloggt.</span><strong>Einheit auswählen</strong></button>
+        <button className="empty-card" onClick={onTrain}><span>{t('dashboard.emptyNothing')}</span><strong>{t('dashboard.emptyChoose')}</strong></button>
       )}
 
       <LoadSparkline sessions={sessions} today={today} threshold={settings.loadThreshold7d} />
 
-      <div className="section-heading"><h2>Zuletzt</h2></div>
+      <div className="section-heading"><h2>{t('dashboard.sectionRecent')}</h2></div>
       <div className="session-list">
-        {sessions.filter((session) => session.date !== today && !isMorningRoutine(session)).slice(0, 4).map((session) => <SessionRow key={session.id} session={session} />)}
-        {!sessions.some((session) => !isMorningRoutine(session)) && <p className="muted">Deine Einheiten erscheinen hier.</p>}
+        {sessions.filter((session) => session.date !== today && !isMorningRoutine(session)).slice(0, 4).map((session) => <SessionRow key={session.id} session={session} lang={lang} />)}
+        {!sessions.some((session) => !isMorningRoutine(session)) && <p className="muted">{t('dashboard.recentEmpty')}</p>}
       </div>
     </main>
   );
@@ -239,29 +246,29 @@ function isMorningRoutine(session: Session): boolean {
   );
 }
 
-function SessionRow({ session }: { session: Session }) {
+function SessionRow({ session, lang }: { session: Session; lang: Lang }) {
   const title = session.type === 'OTHER' && session.activityName
     ? session.activityName
     : session.type === 'RINGS' && session.sourceApp === 'die-ringe'
-    ? 'Die Ringe'
+    ? t('enum.dieRinge')
     : session.type === 'MOBILITY' && (session.note === 'Morgenroutine' || session.mobilityDone?.some((id) => id.startsWith('morning-')))
-      ? 'Morgenroutine'
-      : labels[session.type];
+      ? t('enum.morningRoutine')
+      : t(sessionTypeKey(session.type));
   const areas = session.type === 'RINGS' && session.ringsAreas?.length
-    ? session.ringsAreas.map((area) => ringsAreaLabels[area]).join(' + ')
+    ? session.ringsAreas.map((area) => t(ringsAreaKey(area))).join(' + ')
     : '';
   const skills = session.type === 'RINGS' && session.ringsSkills?.length
-    ? session.ringsSkills.map((skill) => ringsSkillLabels[skill]).join(' · ')
+    ? session.ringsSkills.map((skill) => t(ringsSkillKey(skill))).join(' · ')
     : '';
   return (
     <div className="session-row card">
       <div className={`session-icon type-${session.type.toLowerCase()}`}>{session.type === 'KITE' ? <WindIcon /> : title.slice(0, 1)}</div>
       <div className="session-copy">
         <strong>{title}</strong>
-        <span>{formatShortDate(session.date)}{areas ? ` · ${areas}` : ''}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · Stufe ${session.boardOffLevel}` : ''}{session.durationMin ? ` · ${session.durationMin} min` : ''} · Last {sessionLoad(session).toFixed(1)}</span>
+        <span>{formatShortDate(session.date, localeFor(lang))}{areas ? ` · ${areas}` : ''}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · ${t('common.stageLabel', { level: session.boardOffLevel })}` : ''}{session.durationMin ? ` · ${t('common.minutes', { min: session.durationMin })}` : ''} · {t('common.loadLabel', { load: formatLoad(sessionLoad(session), lang) })}</span>
         {skills && <small>{skills}</small>}
       </div>
-      {session.feel && <span className={`feel-dot ${session.feel}`} title={session.feel} />}
+      {session.feel && <span className={`feel-dot ${session.feel}`} title={t(feelKey(session.feel))} />}
     </div>
   );
 }

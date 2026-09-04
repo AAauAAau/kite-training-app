@@ -1,3 +1,4 @@
+import type { MessageKey } from '../i18n';
 import type { BodyRegion, Exercise, Injury, Session, Settings } from '../types';
 import { localDate } from './date.ts';
 import { alternativesFor, groupByEquipment } from './substitution.ts';
@@ -7,16 +8,10 @@ export const INJURY_DURATION_DAYS = [7, 14, 28] as const;
 /** Templates, deren Aufbau der Verletzungs-Modus anpasst. */
 export const injurySessionTypes: Session['type'][] = ['A', 'B', 'KB', 'BOARD_OFF'];
 
-export const bodyRegionLabels: Record<BodyRegion, string> = {
-  'lower-back': 'Unterer Rücken',
-  knee: 'Knie',
-  shoulder: 'Schulter',
-  'elbow-wrist': 'Ellenbogen / Handgelenk',
-  'hip-groin': 'Hüfte / Leiste',
-  neck: 'Nacken',
-  ribs: 'Rippen',
-  ankle: 'Sprunggelenk'
-};
+/** Message-Key für den Regionsnamen — die Komponente übersetzt. */
+export function bodyRegionLabel(region: BodyRegion): MessageKey {
+  return `enum.bodyRegion.${region}`;
+}
 
 /** In der Einstellungs-Auswahl angebotene Regionen (ohne die ungenutzte `ankle`). */
 export const selectableBodyRegions: BodyRegion[] = [

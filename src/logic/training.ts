@@ -1,3 +1,4 @@
+import type { MessageDescriptor } from '../i18n';
 import type { Exercise, PlannedSession, Session, SetLog, Settings } from '../types';
 import { addDays, daysBetween, localDate, startOfWeek } from './date.ts';
 
@@ -8,8 +9,8 @@ const comebackSessionTypes: Session['type'][] = ['A', 'B', 'KB'];
 export const AUTOREGULATION_STEP = 0.075;
 export type AutoregulationFeedback = 'easy' | 'ok' | 'hard';
 
-export const lowerBackWarning = 'Rücken ist von gestern vorbelastet — Gewicht runter oder Tag B vorziehen.';
-export const kbWithoutStrengthWarning = 'Diese Woche keine schwere Beinarbeit — Pop und Landung kommen aus Tag A/B.';
+export const lowerBackWarning: MessageDescriptor = { key: 'warning.lowerBack' };
+export const kbWithoutStrengthWarning: MessageDescriptor = { key: 'warning.kbWithoutStrength' };
 
 export function sessionLoad(session: Session): number {
   switch (session.type) {
@@ -34,17 +35,20 @@ export function deloadDue(
   sessions: Session[],
   settings: Pick<Settings, 'loadThreshold7d'>,
   date = localDate()
-): { due: boolean; reason: string } {
+): { due: boolean; reason: MessageDescriptor | null } {
   const chronological = [...sessions].sort((a, b) => a.date.localeCompare(b.date));
   const lastThree = chronological.slice(-3);
   if (lastThree.length === 3 && lastThree.every((session) => session.feel === 'wrecked')) {
-    return { due: true, reason: 'Drei Einheiten in Folge fühlten sich komplett leer an.' };
+    return { due: true, reason: { key: 'deload.reason.wrecked' } };
   }
   const load = rollingLoad7d(sessions, date);
   if (load > settings.loadThreshold7d) {
-    return { due: true, reason: `7-Tage-Last ${load.toFixed(1)} liegt über deinem Limit ${settings.loadThreshold7d}.` };
+    return {
+      due: true,
+      reason: { key: 'deload.reason.load', params: { load: load.toFixed(1), limit: settings.loadThreshold7d } }
+    };
   }
-  return { due: false, reason: '' };
+  return { due: false, reason: null };
 }
 
 export function sprintWeek(sessions: Session[]): number {
@@ -109,7 +113,7 @@ export interface ComebackState {
   active: boolean;
   daysSinceLast: number | null;
   factor: number;
-  reason: string;
+  reason: MessageDescriptor | null;
 }
 
 /**
@@ -121,17 +125,17 @@ export function comebackState(sessions: Session[], date = localDate()): Comeback
   const previous = sessions
     .filter((session) => session.date < date && comebackSessionTypes.includes(session.type))
     .sort((a, b) => b.date.localeCompare(a.date))[0];
-  if (!previous) return { active: false, daysSinceLast: null, factor: 1, reason: '' };
+  if (!previous) return { active: false, daysSinceLast: null, factor: 1, reason: null };
   const daysSinceLast = daysBetween(previous.date, date);
   if (daysSinceLast <= COMEBACK_AFTER_DAYS) {
-    return { active: false, daysSinceLast, factor: 1, reason: '' };
+    return { active: false, daysSinceLast, factor: 1, reason: null };
   }
   const weeks = Math.floor(daysSinceLast / 7);
   return {
     active: true,
     daysSinceLast,
     factor: COMEBACK_FACTOR,
-    reason: `Letzte Krafteinheit vor ${weeks} Wochen — Startgewichte auf ${Math.round(COMEBACK_FACTOR * 100)} % des letzten Arbeitsgewichts reduziert.`
+    reason: { key: 'comeback.reason', params: { weeks, percent: Math.round(COMEBACK_FACTOR * 100) } }
   };
 }
 
@@ -170,25 +174,25 @@ export function lastLoggedSet(exerciseId: string, sessions: Session[]): SetLog |
   return null;
 }
 
-export function sprintWarnings(date: string, sessions: Session[]): string[] {
-  const warnings: string[] = [];
+export function sprintWarnings(date: string, sessions: Session[]): MessageDescriptor[] {
+  const warnings: MessageDescriptor[] = [];
   if (sessions.some((session) => session.date === date && session.type === 'A')) {
-    warnings.push('Am selben Tag ist bereits Tag A mit Kreuzheben geloggt.');
+    warnings.push({ key: 'sprint.warning.sameDayDeadlift' });
   }
   if (sessions.some((session) => session.date === addDays(date, -1) && session.type === 'KITE' && session.intensity === 'hard')) {
-    warnings.push('Gestern war ein harter Kitetag. Hamstrings und Landebelastung sind noch frisch.');
+    warnings.push({ key: 'sprint.warning.hardKiteYesterday' });
   }
   return warnings;
 }
 
-export function strengthWarnings(type: Session['type'], date: string, sessions: Session[]): string[] {
+export function strengthWarnings(type: Session['type'], date: string, sessions: Session[]): MessageDescriptor[] {
   if (type !== 'A') return [];
   return sessions.some((session) =>
     session.date === addDays(date, -1) && session.type === 'KITE' && session.intensity === 'hard'
   ) ? [lowerBackWarning] : [];
 }
 
-export function weeklyStrengthWarning(date: string, sessions: Session[]): string | null {
+export function weeklyStrengthWarning(date: string, sessions: Session[]): MessageDescriptor | null {
   const firstDay = startOfWeek(date);
   const lastDay = addDays(firstDay, 6);
   const week = sessions.filter((session) => session.date >= firstDay && session.date <= lastDay);

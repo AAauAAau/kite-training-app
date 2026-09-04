@@ -13,7 +13,7 @@ export default defineConfig({
       manifest: {
         name: 'Kite Strength Tracker',
         short_name: 'Kite Strength',
-        description: 'Offline Trainingsplanung für Kraft, Sprint und Kitetage',
+        description: 'Offline training log for strength, sprint and kite days',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',

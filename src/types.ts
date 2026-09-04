@@ -1,3 +1,5 @@
+export type Lang = 'de' | 'en' | 'fr';
+
 export type SessionType = 'A' | 'B' | 'RINGS' | 'KB' | 'SPRINT' | 'MOBILITY' | 'KITE' | 'PADEL' | 'BOARD_OFF' | 'OTHER';
 export type Feel = 'good' | 'ok' | 'wrecked';
 export type TrainingIntensity = 'chill' | 'normal' | 'hard';
@@ -107,6 +109,7 @@ export interface Settings {
   boardOffLevel?: number;
   boardOffHasRig?: boolean;
   injuries?: Injury[];
+  lang?: Lang;   // aktive Sprache; fehlt → beim Start aus navigator.language gesetzt
 }
 
 export interface TemplateExercise {

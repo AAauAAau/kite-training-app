@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { t } from '../i18n';
+import { useLang } from '../i18n/react';
 import type { KiteBoard, KiteDetails, KiteWind } from '../types';
 import { CheckIcon } from './Icons';
 
-const winds: { value: KiteWind; label: string }[] = [
-  { value: 'leicht', label: 'Leicht' },
-  { value: 'mittel', label: 'Mittel' },
-  { value: 'stark', label: 'Stark' }
+const winds: { value: KiteWind; key: 'enum.wind.leicht' | 'enum.wind.mittel' | 'enum.wind.stark' }[] = [
+  { value: 'leicht', key: 'enum.wind.leicht' },
+  { value: 'mittel', key: 'enum.wind.mittel' },
+  { value: 'stark', key: 'enum.wind.stark' }
 ];
 
-const boards: { value: KiteBoard; label: string }[] = [
-  { value: 'twintip', label: 'Twintip' },
-  { value: 'foil', label: 'Foil' },
-  { value: 'directional', label: 'Directional' }
+const boards: { value: KiteBoard; key: 'enum.board.twintip' | 'enum.board.foil' | 'enum.board.directional' }[] = [
+  { value: 'twintip', key: 'enum.board.twintip' },
+  { value: 'foil', key: 'enum.board.foil' },
+  { value: 'directional', key: 'enum.board.directional' }
 ];
 
 function cleanDetails(details: KiteDetails): KiteDetails | undefined {
@@ -23,8 +25,8 @@ export function KiteDetailsEditor({
   details,
   focusTags,
   onChange,
-  idleLabel = 'Wird automatisch gespeichert',
-  savedLabel = 'Gespeichert'
+  idleLabel,
+  savedLabel
 }: {
   details?: KiteDetails;
   focusTags: string[];
@@ -32,6 +34,7 @@ export function KiteDetailsEditor({
   idleLabel?: string;
   savedLabel?: string;
 }) {
+  useLang();
   const [saved, setSaved] = useState(false);
   const timeoutRef = useRef<number | undefined>(undefined);
   const availableTags = useMemo(
@@ -57,29 +60,29 @@ export function KiteDetailsEditor({
   return (
     <details className="kite-details-editor">
       <summary>
-        <span>Details</span>
-        <small>{details ? 'Bearbeiten' : 'Optional'}</small>
+        <span>{t('kiteDetails.summary')}</span>
+        <small>{details ? t('kiteDetails.edit') : t('kiteDetails.optional')}</small>
         <b>⌄</b>
       </summary>
       <div className="kite-details-fields">
         <fieldset>
-          <legend>Windstärke</legend>
+          <legend>{t('kiteDetails.wind')}</legend>
           <div className="kite-choice-grid three">
-            {winds.map(({ value, label }) => (
-              <button type="button" key={value} className={details?.wind === value ? 'selected' : ''} onClick={() => void save({ ...details, wind: details?.wind === value ? undefined : value })}>{label}</button>
+            {winds.map(({ value, key }) => (
+              <button type="button" key={value} className={details?.wind === value ? 'selected' : ''} onClick={() => void save({ ...details, wind: details?.wind === value ? undefined : value })}>{t(key)}</button>
             ))}
           </div>
         </fieldset>
         <fieldset>
-          <legend>Board</legend>
+          <legend>{t('kiteDetails.board')}</legend>
           <div className="kite-choice-grid three">
-            {boards.map(({ value, label }) => (
-              <button type="button" key={value} className={details?.board === value ? 'selected' : ''} onClick={() => void save({ ...details, board: details?.board === value ? undefined : value })}>{label}</button>
+            {boards.map(({ value, key }) => (
+              <button type="button" key={value} className={details?.board === value ? 'selected' : ''} onClick={() => void save({ ...details, board: details?.board === value ? undefined : value })}>{t(key)}</button>
             ))}
           </div>
         </fieldset>
         <fieldset>
-          <legend>Fokus <small>Mehrfachauswahl</small></legend>
+          <legend>{t('kiteDetails.focus')} <small>{t('kiteDetails.focusHint')}</small></legend>
           <div className="kite-focus-picker">
             {availableTags.map((tag) => (
               <button type="button" key={tag} className={details?.focus?.includes(tag) ? 'selected' : ''} onClick={() => toggleFocus(tag)}>{tag}</button>
@@ -87,7 +90,7 @@ export function KiteDetailsEditor({
           </div>
         </fieldset>
         <small className={`autosave-hint ${saved ? 'confirmed' : ''}`} role="status">
-          <CheckIcon /> {saved ? savedLabel : idleLabel}
+          <CheckIcon /> {saved ? (savedLabel ?? t('common.autosaveSaved')) : (idleLabel ?? t('common.autosaveIdle'))}
         </small>
       </div>
     </details>

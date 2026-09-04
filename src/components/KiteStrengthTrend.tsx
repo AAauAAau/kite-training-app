@@ -1,4 +1,7 @@
+import { t } from '../i18n';
+import { useLang } from '../i18n/react';
 import { addDays, startOfWeek } from '../logic/date';
+import { formatKg, formatLoad } from '../logic/format';
 import { sessionLoad } from '../logic/training';
 import type { Session } from '../types';
 
@@ -33,6 +36,7 @@ function weekPoints(sessions: Session[], today: string): WeekPoint[] {
 }
 
 export function KiteStrengthTrend({ sessions, today }: { sessions: Session[]; today: string }) {
+  const lang = useLang();
   const points = weekPoints(sessions, today);
   const maxVolume = Math.max(...points.map((point) => point.strengthVolume), 1);
   const maxKite = Math.max(...points.map((point) => point.kiteDays), 1);
@@ -48,11 +52,11 @@ export function KiteStrengthTrend({ sessions, today }: { sessions: Session[]; to
   return (
     <section className="trend-card card">
       <div className="trend-heading">
-        <div><span className="eyebrow">Letzte 8 Wochen</span><h2>Wind & Kraft</h2></div>
-        <div className="trend-current"><strong>{latest.loadPoints.toFixed(1)}</strong><span>Punkte</span><strong>{latest.kiteDays}</strong><span>Kitetage</span><strong>{Math.round(latest.strengthVolume)}</strong><span>kg Volumen</span></div>
+        <div><span className="eyebrow">{t('trend.eyebrow')}</span><h2>{t('trend.title')}</h2></div>
+        <div className="trend-current"><strong>{formatLoad(latest.loadPoints, lang)}</strong><span>{t('trend.points')}</span><strong>{latest.kiteDays}</strong><span>{t('trend.kiteDays')}</span><strong>{formatKg(Math.round(latest.strengthVolume), lang)}</strong><span>{t('trend.volume')}</span></div>
       </div>
-      <div className="trend-legend"><span><i className="strength-key" />Kraftvolumen</span><span><i className="kite-key" />Kitetage</span><span><i className="points-key" />Lastpunkte</span></div>
-      <svg className="trend-chart" viewBox="0 0 320 142" role="img" aria-label="Kitetage und Kraftvolumen der letzten acht Wochen">
+      <div className="trend-legend"><span><i className="strength-key" />{t('trend.legendStrength')}</span><span><i className="kite-key" />{t('trend.legendKite')}</span><span><i className="points-key" />{t('trend.legendPoints')}</span></div>
+      <svg className="trend-chart" viewBox="0 0 320 142" role="img" aria-label={t('trend.chartAria')}>
         <line x1="14" y1="116" x2="316" y2="116" className="trend-axis" />
         {points.map((point, index) => (
           <g key={`volume-${point.start}`}>
@@ -65,7 +69,7 @@ export function KiteStrengthTrend({ sessions, today }: { sessions: Session[]; to
         <polyline points={loadLine} className="points-line" />
         {points.map((point, index) => <circle key={`points-${point.start}`} cx={x(index) + 10} cy={loadY(point.loadPoints)} r="3" className="points-point" />)}
       </svg>
-      <p>Die Reihen sind separat skaliert. Lastpunkte summieren alle Aktivitäten der Kalenderwoche.</p>
+      <p>{t('trend.note')}</p>
     </section>
   );
 }

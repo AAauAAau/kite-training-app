@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { t } from '../i18n';
 import { useAppStore } from '../store';
 
 let audioContext: AudioContext | null = null;
@@ -110,17 +111,17 @@ export function TimerDock() {
   return (
     <aside className={`timer-dock ${finished ? 'finished' : ''}`} aria-live="polite">
       <div>
-        <small>{activeTimer.kind === 'rest' ? 'Satzpause' : activeTimer.mode === 'pace' ? 'Tempo' : 'Timer'}</small>
+        <small>{activeTimer.kind === 'rest' ? t('timer.rest') : activeTimer.mode === 'pace' ? t('timer.pace') : t('timer.timer')}</small>
         <strong>{activeTimer.label}</strong>
       </div>
-      <b>{finished ? 'Fertig' : shownTime}</b>
-      <button type="button" onClick={() => void stopTimer()}>{activeTimer.mode === 'countup' ? 'Stop' : 'Schließen'}</button>
+      <b>{finished ? t('timer.done') : shownTime}</b>
+      <button type="button" onClick={() => void stopTimer()}>{activeTimer.mode === 'countup' ? t('common.timerStop') : t('timer.close')}</button>
       <button
         type="button"
         className="audio-toggle"
-        aria-label={audioEnabled ? 'Signalton ausschalten' : 'Signalton einschalten'}
+        aria-label={audioEnabled ? t('timer.audioOffAria') : t('timer.audioOnAria')}
         onClick={() => { primeTimerAudio(); void updateSettings({ timerAudioEnabled: !audioEnabled }); }}
-      >{audioEnabled ? 'Ton an' : 'Ton aus'}</button>
+      >{audioEnabled ? t('timer.audioOn') : t('timer.audioOff')}</button>
     </aside>
   );
 }

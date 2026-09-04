@@ -1,13 +1,18 @@
 import { useState } from 'react';
+import { t } from '../i18n';
+import { ringsSkillKey, trainingIntensityKey } from '../i18n/enums';
+import { useLang } from '../i18n/react';
 import { boardOffLevels, mobilityChecklists, mobilityItems, templates } from '../data/seed';
 import { formatShortDate, localDate } from '../logic/date';
+import { formatFixed, formatKg, formatLoad, localeFor } from '../logic/format';
+import { localizeBoardOffLevel, localizeExercise, localizeMobility, localizeTemplate } from '../logic/localize';
 import { boardOffLevelSlots, levelNeedsRig, recommendBoardOffLevel } from '../logic/boardoff';
 import type { BoardOffAssessment } from '../logic/boardoff';
 import { autoregulatedKg, comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
 import type { AutoregulationFeedback } from '../logic/training';
-import { applyInjuryToSlots, bodyRegionLabels, injurySessionTypes, injuryState } from '../logic/injury';
+import { applyInjuryToSlots, bodyRegionLabel, injurySessionTypes, injuryState } from '../logic/injury';
 import { useAppStore } from '../store';
-import type { BodyRegion, BoardOffLevel, Entry, Exercise, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
+import type { BodyRegion, BoardOffLevel, Entry, Exercise, Lang, RingsArea, RingsSkill, Session, SessionTemplate, SetLog, SessionType, TrainingIntensity } from '../types';
 import { AlertIcon, CheckIcon, ChevronIcon, PlayIcon, SwapIcon } from './Icons';
 import { SessionDatePicker } from './SessionDatePicker';
 import { SubstitutionSheet } from './SubstitutionSheet';
@@ -41,26 +46,24 @@ type Draft = {
   injuryAdjustments?: { regions: BodyRegion[]; swaps: { from: string; to: string }[]; dropped: string[] };
 };
 
-const ringsAreaOptions: { value: RingsArea; label: string; detail: string }[] = [
-  { value: 'mobility', label: 'Mobility', detail: 'Beweglichkeit & Vorbereitung' },
-  { value: 'upper', label: 'Oberkörper', detail: 'Calisthenics' },
-  { value: 'legs', label: 'Bodyweight Legs', detail: 'Beintraining' },
-  { value: 'skills', label: 'Skill-Training', detail: 'Technik & Progression' }
+const ringsAreaOptions: { value: RingsArea; labelKey: 'enum.ringsArea.mobility' | 'workout.ringsAreaUpperLabel' | 'workout.ringsAreaLegsLabel' | 'workout.ringsAreaSkillsLabel'; detailKey: 'workout.ringsAreaMobilityDetail' | 'workout.ringsAreaUpperDetail' | 'workout.ringsAreaLegsDetail' | 'workout.ringsAreaSkillsDetail' }[] = [
+  { value: 'mobility', labelKey: 'enum.ringsArea.mobility', detailKey: 'workout.ringsAreaMobilityDetail' },
+  { value: 'upper', labelKey: 'workout.ringsAreaUpperLabel', detailKey: 'workout.ringsAreaUpperDetail' },
+  { value: 'legs', labelKey: 'workout.ringsAreaLegsLabel', detailKey: 'workout.ringsAreaLegsDetail' },
+  { value: 'skills', labelKey: 'workout.ringsAreaSkillsLabel', detailKey: 'workout.ringsAreaSkillsDetail' }
 ];
 
-function exerciseName(exercises: Exercise[], id: string): string {
-  return exercises.find((exercise) => exercise.id === id)?.name ?? id;
+function exerciseName(exercises: Exercise[], id: string, lang: Lang): string {
+  const exercise = exercises.find((item) => item.id === id);
+  return exercise ? localizeExercise(exercise, lang).name : id;
 }
 
-const ringsSkillOptions: { value: RingsSkill; label: string }[] = [
-  { value: 'ring-muscle-up', label: 'Ring Muscle-up' },
-  { value: 'l-sit', label: 'L-Sit' },
-  { value: 'side-split', label: 'Side Split' },
-  { value: 'pistol-squat', label: 'Pistol Squat' }
-];
+const ringsSkillValues: RingsSkill[] = ['ring-muscle-up', 'l-sit', 'side-split', 'pistol-squat'];
 
 export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const { sessions, exercises, settings, activeTimer, addSession, updateSettings, startTimer, stopTimer } = useAppStore();
+  const lang = useLang();
+  const locale = localeFor(lang);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [boardOffPicker, setBoardOffPicker] = useState(false);
   const boardOffHasRig = settings.boardOffHasRig ?? true;
@@ -78,7 +81,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       : undefined;
   }
 
-  function startTemplate(template: SessionTemplate) {
+  function startTemplate(rawTemplate: SessionTemplate) {
+    const template = localizeTemplate(rawTemplate, lang);
     const adjustment = injury.blockedRegions.length && injurySessionTypes.includes(template.type)
       ? applyInjuryToSlots(template.exercises, exercises, injury.blockedRegions)
       : { swaps: [], dropped: [] };
@@ -120,7 +124,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     setBoardOffPicker(false);
   }
 
-  function startBoardOffLevel(level: BoardOffLevel) {
+  function startBoardOffLevel(rawLevel: BoardOffLevel) {
+    const level = localizeBoardOffLevel(rawLevel, lang);
     const allSlots = boardOffLevelSlots(level, boardOffHasRig);
     const dropped = injury.blockedRegions.length
       ? applyInjuryToSlots(allSlots, exercises, injury.blockedRegions).dropped
@@ -141,7 +146,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     });
     setDraft({
       type: 'BOARD_OFF',
-      title: level.level === 0 ? 'Board-Off · Vorbereitung' : `Board-Off · Stufe ${level.level} · ${level.label}`,
+      title: level.level === 0 ? t('workout.titleBoardOffPrep') : t('workout.titleBoardOffStage', { level: level.level, label: level.label }),
       entries,
       exerciseNotes: Object.fromEntries(slots.map((slot) => [slot.exerciseId, slot.mistake])),
       boardOffRegressions: Object.fromEntries(slots.map((slot) => [slot.exerciseId, slot.regression])),
@@ -156,35 +161,35 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   function startSprint() {
     const prescription = sprintPrescription(week);
     setDraft({
-      type: 'SPRINT', title: `Sprint · Woche ${week}`, exerciseNotes: {}, mobilityDone: [], note: '',
+      type: 'SPRINT', title: t('workout.titleSprint', { week }), exerciseNotes: {}, mobilityDone: [], note: '',
       entries: [{ exerciseId: 'sprint', sets: Array.from({ length: 6 }, () => ({ distanceM: prescription.distance, successful: true })) }]
     });
   }
 
   function startRings() {
     setDraft({
-      type: 'RINGS', title: 'Die Ringe', entries: [], exerciseNotes: {}, mobilityDone: [], note: '',
+      type: 'RINGS', title: t('workout.titleRings'), entries: [], exerciseNotes: {}, mobilityDone: [], note: '',
       durationMin: 45, intensity: 'normal', ringsAreas: [], ringsSkills: [], sourceApp: 'die-ringe'
     });
   }
 
   function startPadel() {
     setDraft({
-      type: 'PADEL', title: 'Padel Tennis', entries: [], exerciseNotes: {},
+      type: 'PADEL', title: t('workout.titlePadel'), entries: [], exerciseNotes: {},
       mobilityDone: [], note: '', durationMin: 90
     });
   }
 
   function startOther() {
     setDraft({
-      type: 'OTHER', title: 'Andere Aktivität', entries: [], exerciseNotes: {}, mobilityDone: [], note: '',
+      type: 'OTHER', title: t('workout.titleOther'), entries: [], exerciseNotes: {}, mobilityDone: [], note: '',
       activityName: '', manualLoad: 1.5
     });
   }
 
   function startMobility() {
     setDraft({
-      type: 'MOBILITY', title: 'Mobility', entries: [], exerciseNotes: {}, mobilityDone: [], note: ''
+      type: 'MOBILITY', title: t('workout.titleMobility'), entries: [], exerciseNotes: {}, mobilityDone: [], note: ''
     });
   }
 
@@ -209,7 +214,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     if (previous?.successful !== true && next.successful === true && restSec > 0) {
       primeTimerAudio();
       void startTimer({
-        mode: 'countdown', kind: 'rest', label: `${exercise?.name ?? 'Übung'} · Pause`,
+        mode: 'countdown', kind: 'rest',
+        label: t('workout.restPauseLabel', { name: exercise ? localizeExercise(exercise, lang).name : t('workout.exerciseFallbackName') }),
         sourceId: `rest-${exercise?.id}`, defaultSec: restSec, endTimestamp: Date.now() + restSec * 1000
       });
     }
@@ -291,11 +297,11 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     if (!draft) return;
     if (draft.type === 'RINGS' && draft.sourceApp === 'die-ringe' && !draft.ringsAreas?.length) return;
     if (draft.type === 'SPRINT') {
-      const warnings = sprintWarnings(sessionDate, sessions);
-      if (warnings.length && !window.confirm(`${warnings.join('\n\n')}\n\nTrotzdem speichern?`)) return;
+      const warnings = sprintWarnings(sessionDate, sessions).map((warning) => t(warning.key, warning.params));
+      if (warnings.length && !window.confirm(`${warnings.join('\n\n')}\n\n${t('workout.sprintConfirmSuffix')}`)) return;
     }
-    const backWarnings = strengthWarnings(draft.type, sessionDate, sessions);
-    if (backWarnings.length && !window.confirm(`${backWarnings.join('\n\n')}\n\nTrotzdem speichern?`)) return;
+    const backWarnings = strengthWarnings(draft.type, sessionDate, sessions).map((warning) => t(warning.key, warning.params));
+    if (backWarnings.length && !window.confirm(`${backWarnings.join('\n\n')}\n\n${t('workout.sprintConfirmSuffix')}`)) return;
     setSaving(true);
     const entries = draft.compactCoreToWarmup
       ? draft.entries.filter((entry) => entry.exerciseId !== 'bird-dog' && entry.exerciseId !== 'side-plank')
@@ -316,8 +322,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   if (!draft && boardOffPicker && settings.boardOffLevel === undefined) return (
     <main className="page workout-menu">
       <header className="sticky-workout-header">
-        <button className="icon-button" onClick={() => setBoardOffPicker(false)} aria-label="Zurück">‹</button>
-        <div><span className="eyebrow">Einmalig</span><h1>Board-Off-Einstufung</h1></div>
+        <button className="icon-button" onClick={() => setBoardOffPicker(false)} aria-label={t('common.back')}>‹</button>
+        <div><span className="eyebrow">{t('workout.assessmentEyebrow')}</span><h1>{t('workout.assessmentTitle')}</h1></div>
       </header>
       <BoardOffAssessmentForm onDone={async (assessment) => {
         await updateSettings({ boardOffLevel: recommendBoardOffLevel(assessment), boardOffHasRig: assessment.hasRig });
@@ -328,80 +334,88 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   if (!draft && boardOffPicker) return (
     <main className="page workout-menu">
       <header className="sticky-workout-header">
-        <button className="icon-button" onClick={() => setBoardOffPicker(false)} aria-label="Zurück">‹</button>
-        <div><span className="eyebrow">Trockentraining im Trapez</span><h1>Board-Off-Stufe</h1></div>
+        <button className="icon-button" onClick={() => setBoardOffPicker(false)} aria-label={t('common.back')}>‹</button>
+        <div><span className="eyebrow">{t('workout.boardOffPickerEyebrow')}</span><h1>{t('workout.boardOffPickerTitle')}</h1></div>
         <span className="exercise-count">6</span>
       </header>
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
       <section className="alert-card">
         <AlertIcon />
-        <div><strong>Tragfähigkeit prüfen.</strong><p>Klemm-Türreckstangen sind nicht ausgelegt und lösen sich unter Ruck. Nur verschraubte Stange, Deckenträger oder Gerüstrohr — einmal mit vollem Körpergewicht plus Ruck testen.</p></div>
+        <div><strong>{t('workout.loadCheckTitle')}</strong><p>{t('workout.loadCheckBody')}</p></div>
       </section>
       {!boardOffHasRig && (
-        <section className="alert-card subtle"><AlertIcon /><div><strong>Ohne Aufhängung</strong><p>Übungen im Trapez-Hang laufen als Bodenvariante. In den Einstellungen änderbar.</p></div></section>
+        <section className="alert-card subtle"><AlertIcon /><div><strong>{t('workout.noRigTitle')}</strong><p>{t('workout.noRigBody')}</p></div></section>
       )}
       <div className="stage-list">
-        {boardOffLevels.map((level) => (
-          <button className={`stage-card card ${settings.boardOffLevel === level.level ? 'selected' : ''}`} key={level.level} onClick={() => startBoardOffLevel(level)}>
-            <span className="stage-number">{level.level}</span>
-            <span>
-              <strong>{level.label}{settings.boardOffLevel === level.level ? ' · deine Stufe' : ''}</strong>
-              <small>Weiter mit: {level.gate}</small>
-              {!boardOffHasRig && levelNeedsRig(level) && <small className="stage-badge">Bodenvariante</small>}
-            </span>
-            <ChevronIcon />
-          </button>
-        ))}
+        {boardOffLevels.map((rawLevel) => {
+          const level = localizeBoardOffLevel(rawLevel, lang);
+          return (
+            <button className={`stage-card card ${settings.boardOffLevel === level.level ? 'selected' : ''}`} key={level.level} onClick={() => startBoardOffLevel(rawLevel)}>
+              <span className="stage-number">{level.level}</span>
+              <span>
+                <strong>{level.label}{settings.boardOffLevel === level.level ? t('workout.yourStageSuffix') : ''}</strong>
+                <small>{t('workout.stageGate', { gate: level.gate })}</small>
+                {!boardOffHasRig && levelNeedsRig(level) && <small className="stage-badge">{t('workout.floorVariant')}</small>}
+              </span>
+              <ChevronIcon />
+            </button>
+          );
+        })}
       </div>
     </main>
   );
 
   if (!draft) return (
     <main className="page workout-menu">
-      <header className="page-header"><div><span className="eyebrow">Was passt?</span><h1>Training starten</h1></div></header>
+      <header className="page-header"><div><span className="eyebrow">{t('workout.menuEyebrow')}</span><h1>{t('workout.menuTitle')}</h1></div></header>
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
       <div className="template-list">
-        <div className="template-group-heading"><span className="eyebrow">Trainingspläne</span><small>Mit Übungen und Satzvorgaben</small></div>
-        {templates.map((template) => (
-          <button className="template-card card" key={template.type} onClick={() => startTemplate(template)}>
-            <span className={`template-letter type-${template.type.toLowerCase()}`}>{template.type === 'RINGS' ? 'R' : template.type}</span>
-            <span><strong>{template.title}</strong><small>{template.subtitle} · Last {template.type === 'A' || template.type === 'B' ? '2,0' : '1,5'}</small></span><ChevronIcon />
-          </button>
-        ))}
-        <div className="template-group-heading secondary-group"><span className="eyebrow">Aktivität erfassen</span><small>Schnell und ohne Trainingsplan loggen</small></div>
+        <div className="template-group-heading"><span className="eyebrow">{t('workout.plansHeading')}</span><small>{t('workout.plansSub')}</small></div>
+        {templates.map((rawTemplate) => {
+          const template = localizeTemplate(rawTemplate, lang);
+          const load = formatLoad(template.type === 'A' || template.type === 'B' ? 2 : 1.5, lang);
+          return (
+            <button className="template-card card" key={template.type} onClick={() => startTemplate(rawTemplate)}>
+              <span className={`template-letter type-${template.type.toLowerCase()}`}>{template.type === 'RINGS' ? 'R' : template.type}</span>
+              <span><strong>{template.title}</strong><small>{t('workout.templateSub', { subtitle: template.subtitle, load })}</small></span><ChevronIcon />
+            </button>
+          );
+        })}
+        <div className="template-group-heading secondary-group"><span className="eyebrow">{t('workout.activityHeading')}</span><small>{t('workout.activitySub')}</small></div>
         <button className="template-card rings-card card" onClick={startRings}>
           <span className="template-letter type-rings">R</span>
-          <span><strong>Die Ringe</strong><small>Bereiche & Skills · Last 1,0–2,0</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardRingsTitle')}</strong><small>{t('workout.cardRingsSub')}</small></span><ChevronIcon />
         </button>
         <button className="template-card sprint-card card" onClick={startSprint}>
           <span className="template-letter type-sprint">S</span>
-          <span><strong>Sprint · Woche {week}</strong><small>6×{sprintPrescription(week).distance} m · {sprintPrescription(week).intensity} · Last 2,0</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardSprintTitle', { week })}</strong><small>{t('workout.cardSprintSub', { distance: sprintPrescription(week).distance, intensity: sprintPrescription(week).intensity })}</small></span><ChevronIcon />
         </button>
         <button className="template-card boardoff-card card" onClick={() => setBoardOffPicker(true)}>
           <span className="template-letter type-board_off">B</span>
-          <span><strong>Board-Off Drills</strong><small>Trapez-Hang-Progression · Stufe 0–5 · Last 1,0</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardBoardOffTitle')}</strong><small>{t('workout.cardBoardOffSub')}</small></span><ChevronIcon />
         </button>
         <button className="template-card padel-card card" onClick={startPadel}>
           <span className="template-letter type-padel">P</span>
-          <span><strong>Padel Tennis</strong><small>Dauer optional · Last 1,5</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardPadelTitle')}</strong><small>{t('workout.cardPadelSub')}</small></span><ChevronIcon />
         </button>
         <button className="template-card other-card card" onClick={startOther}>
           <span className="template-letter type-other">+</span>
-          <span><strong>Andere Aktivität</strong><small>Joggen, Schwimmen etc. · Last frei</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardOtherTitle')}</strong><small>{t('workout.cardOtherSub')}</small></span><ChevronIcon />
         </button>
         <button className="template-card card" onClick={startMobility}>
           <span className="template-letter type-mobility">M</span>
-          <span><strong>Mobility</strong><small>Checkliste · Last 0,0</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardMobilityTitle')}</strong><small>{t('workout.cardMobilitySub')}</small></span><ChevronIcon />
         </button>
       </div>
-      <button className="text-button cancel-link" onClick={onCancel}>Abbrechen</button>
+      <button className="text-button cancel-link" onClick={onCancel}>{t('common.cancel')}</button>
     </main>
   );
 
-  const currentTemplate = templates.find((template) => template.type === draft.type);
+  const rawCurrentTemplate = templates.find((template) => template.type === draft.type);
+  const currentTemplate = rawCurrentTemplate ? localizeTemplate(rawCurrentTemplate, lang) : undefined;
   const prescription = draft.type === 'SPRINT' ? sprintPrescription(week) : null;
   const externalRings = draft.type === 'RINGS' && draft.sourceApp === 'die-ringe';
-  const preSession = mobilityChecklists.find((template) => template.variant === 'pre-session')!;
+  const preSession = localizeMobility(mobilityChecklists.find((template) => template.variant === 'pre-session')!, lang);
   const visibleEntryCount = draft.compactCoreToWarmup
     ? draft.entries.filter((entry) => entry.exerciseId !== 'bird-dog' && entry.exerciseId !== 'side-plank').length
     : draft.entries.length;
@@ -411,18 +425,18 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   return (
     <main className="page workout-active">
       <header className="sticky-workout-header">
-        <button className="icon-button" onClick={() => setDraft(null)} aria-label="Zurück">‹</button>
-        <div><span className="eyebrow">{sessionDate === localDate() ? 'Heute' : formatShortDate(sessionDate)}</span><h1>{draft.title ?? currentTemplate?.title ?? `Sprint · Woche ${week}`}</h1></div>
+        <button className="icon-button" onClick={() => setDraft(null)} aria-label={t('common.back')}>‹</button>
+        <div><span className="eyebrow">{sessionDate === localDate() ? t('common.today') : formatShortDate(sessionDate, locale)}</span><h1>{draft.title ?? currentTemplate?.title ?? t('workout.titleSprint', { week })}</h1></div>
         <span className="exercise-count">{externalRings ? draft.ringsAreas?.length ?? 0 : visibleEntryCount}</span>
       </header>
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
 
-      {comeback.active && (draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
+      {comeback.active && comeback.reason && (draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
         <section className="alert-card subtle">
           <AlertIcon />
           <div>
-            <strong>Wiedereinstieg nach Pause</strong>
-            <p>{comeback.reason} Typisch nach Urlaub oder Krankheit — erste Einheit bewusst leicht, danach normal weiter.</p>
+            <strong>{t('workout.comebackTitle')}</strong>
+            <p>{t(comeback.reason.key, comeback.reason.params)} {t('comeback.hintSuffix')}</p>
           </div>
         </section>
       )}
@@ -431,15 +445,15 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         <section className="alert-card subtle">
           <AlertIcon />
           <div>
-            <strong>Schonung {draft.injuryAdjustments.regions.map((region) => bodyRegionLabels[region]).join(', ')}</strong>
+            <strong>{t('workout.injuryTitle', { regions: draft.injuryAdjustments.regions.map((region) => t(bodyRegionLabel(region))).join(', ') })}</strong>
             <p>
               {[
-                ...draft.injuryAdjustments.swaps.map((swap) => `${exerciseName(exercises, swap.from)} → ${exerciseName(exercises, swap.to)}`),
-                ...draft.injuryAdjustments.dropped.map((id) => `${exerciseName(exercises, id)} entfällt`)
+                ...draft.injuryAdjustments.swaps.map((swap) => t('workout.injurySwap', { from: exerciseName(exercises, swap.from, lang), to: exerciseName(exercises, swap.to, lang) })),
+                ...draft.injuryAdjustments.dropped.map((id) => t('workout.injuryDrop', { name: exerciseName(exercises, id, lang) }))
               ].join(' · ')}
             </p>
             {draft.type === 'BOARD_OFF' && draft.entries.length < 2 && (
-              <p>Diese Stufe ist mit der aktuellen Schonung kaum sinnvoll.</p>
+              <p>{t('workout.injuryBoardOffThin')}</p>
             )}
           </div>
         </section>
@@ -447,15 +461,15 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
       {draft.type === 'SPRINT' && (
         <>
-          <section className="sprint-safety"><AlertIcon /><strong>Zwicken in der Oberschenkelrückseite → sofort abbrechen, nicht auslaufen.</strong></section>
-          <section className="warmup card"><span className="eyebrow">10 min Warm-up</span><p>Skippings · A-Läufe · Anläufe</p><strong>6×{prescription?.distance} m @ {prescription?.intensity}</strong></section>
-          <SprintStats sessions={sessionHistory} entries={draft.entries} />
+          <section className="sprint-safety"><AlertIcon /><strong>{t('workout.sprintSafety')}</strong></section>
+          <section className="warmup card"><span className="eyebrow">{t('workout.sprintWarmupEyebrow')}</span><p>{t('workout.sprintWarmupBody')}</p><strong>{t('workout.sprintPrescription', { distance: prescription?.distance ?? '', intensity: prescription?.intensity ?? '' })}</strong></section>
+          <SprintStats sessions={sessionHistory} entries={draft.entries} lang={lang} />
         </>
       )}
 
       {(draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
         <section className="mobility-card card">
-          <div><span className="eyebrow">Vor der ersten Übung · {preSession.durationMin} min</span><h3>{preSession.title}</h3></div>
+          <div><span className="eyebrow">{t('workout.warmupEyebrow', { min: preSession.durationMin })}</span><h3>{preSession.title}</h3></div>
           {preSession.items.map((item) => {
             const checked = draft.mobilityDone.includes(item.id);
             const sourceId = `checklist-${draft.type}-${item.id}`;
@@ -467,7 +481,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
                 </button>
                 {item.timerSec && (
                   <button className={`mobility-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlChecklistTimer(item.label, sourceId, item.timerMode ?? 'countdown', item.timerSec)}>
-                    {timerActive ? 'Stop' : item.timerMode === 'pace' ? `${item.timerSec} s Tempo` : `${item.timerSec} s`}
+                    {timerActive ? t('common.timerStop') : item.timerMode === 'pace' ? t('common.timerPace', { sec: item.timerSec }) : t('common.timerSeconds', { sec: item.timerSec })}
                   </button>
                 )}
               </div>
@@ -475,7 +489,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
           })}
           {draft.type === 'B' && (
             <button className={draft.compactCoreToWarmup ? 'checked' : ''} onClick={() => setDraft({ ...draft, compactCoreToWarmup: !draft.compactCoreToWarmup })}>
-              <i>{draft.compactCoreToWarmup && <CheckIcon />}</i><span>Bird Dog + Side Plank hierher verschieben<small>Optional, falls Tag B sonst über 60 min dauert</small></span>
+              <i>{draft.compactCoreToWarmup && <CheckIcon />}</i><span>{t('workout.compactCoreLabel')}<small>{t('workout.compactCoreHint')}</small></span>
             </button>
           )}
         </section>
@@ -487,51 +501,51 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
 
       {draft.type === 'BOARD_OFF' && (
         <section className="boardoff-setup card">
-          <span className="eyebrow">Setup &amp; Sicherheit</span>
-          <h3>Vor dem Hängen</h3>
+          <span className="eyebrow">{t('workout.boardOffSetupEyebrow')}</span>
+          <h3>{t('workout.boardOffSetupTitle')}</h3>
           <ul>
-            <li><strong>Tragfähigkeit:</strong> keine Klemm-Türreckstange. Verschraubte Stange, Deckenträger oder Gerüstrohr, einmal mit vollem Körpergewicht plus Ruck getestet.</li>
-            <li><strong>Höhe:</strong> so niedrig, dass die Füße im Stehen mit leicht gebeugten Knien Bodenkontakt haben — jede Übung durch Hinstellen abbrechbar.</li>
-            <li><strong>Hängewinkel:</strong> Füße etwas vor den Aufhängepunkt, leicht zurücklehnen — der Kite zieht nach oben-hinten, nicht senkrecht.</li>
-            <li><strong>Trapez:</strong> bei Druck auf den Rippenbogen abbrechen, Sitztrapez oder festeren Sitz nutzen.</li>
+            <li><strong>{t('workout.boardOffSetupLoad')}</strong> {t('workout.boardOffSetupLoadBody')}</li>
+            <li><strong>{t('workout.boardOffSetupHeight')}</strong> {t('workout.boardOffSetupHeightBody')}</li>
+            <li><strong>{t('workout.boardOffSetupAngle')}</strong> {t('workout.boardOffSetupAngleBody')}</li>
+            <li><strong>{t('workout.boardOffSetupHarness')}</strong> {t('workout.boardOffSetupHarnessBody')}</li>
           </ul>
           <details className="boardoff-ampel">
-            <summary>Wann abbrechen</summary>
-            <p><strong>Rot — Session sofort beenden:</strong> stechender Schmerz in Leiste/Hüftbeuger, Taubheit oder Kribbeln, Schmerz im unteren Rücken beim Hängen, Druck am Rippenbogen, Schulterschmerz vorn beim einarmigen Hang.</p>
-            <p><strong>Gelb — Übung abbrechen, Regression, weiter:</strong> Griff versagt vor der Kompression, Bewegung nur noch mit Schwung, Hohlkreuz im Hang, unkontrolliertes Zittern.</p>
-            <p><strong>Grün — normal:</strong> Brennen in Hüftbeuger und Bauch, Quadrizeps-Krämpfe bei Kompressionsarbeit.</p>
+            <summary>{t('workout.boardOffAmpelSummary')}</summary>
+            <p><strong>{t('workout.boardOffAmpelRed')}</strong> {t('workout.boardOffAmpelRedBody')}</p>
+            <p><strong>{t('workout.boardOffAmpelYellow')}</strong> {t('workout.boardOffAmpelYellowBody')}</p>
+            <p><strong>{t('workout.boardOffAmpelGreen')}</strong> {t('workout.boardOffAmpelGreenBody')}</p>
           </details>
         </section>
       )}
 
       {draft.type === 'PADEL' && (
         <section className="padel-options card">
-          <span className="eyebrow">Optionale Dauer</span>
-          <h3>Wie lange habt ihr gespielt?</h3>
+          <span className="eyebrow">{t('workout.padelEyebrow')}</span>
+          <h3>{t('workout.padelTitle')}</h3>
           <div className="duration-picker">
             {[60, 90, 120].map((minutes) => (
-              <button key={minutes} className={draft.durationMin === minutes ? 'selected' : ''} onClick={() => setDraft({ ...draft, durationMin: minutes })}>{minutes} min</button>
+              <button key={minutes} className={draft.durationMin === minutes ? 'selected' : ''} onClick={() => setDraft({ ...draft, durationMin: minutes })}>{t('common.minutes', { min: minutes })}</button>
             ))}
           </div>
-          <p>Padel zählt unabhängig von der Dauer mit einer Trainingslast von 1.5.</p>
+          <p>{t('workout.padelNote')}</p>
         </section>
       )}
 
       {draft.type === 'OTHER' && (
         <section className="other-options card">
-          <span className="eyebrow">Freier Eintrag</span>
+          <span className="eyebrow">{t('workout.otherEyebrow')}</span>
           <label>
-            <span>Aktivität</span>
-            <input autoFocus value={draft.activityName ?? ''} onChange={(event) => setDraft({ ...draft, activityName: event.target.value })} placeholder="z. B. Joggen" />
+            <span>{t('workout.otherActivity')}</span>
+            <input autoFocus value={draft.activityName ?? ''} onChange={(event) => setDraft({ ...draft, activityName: event.target.value })} placeholder={t('workout.otherActivityPlaceholder')} />
           </label>
           <label>
-            <span>Dauer · optional</span>
+            <span>{t('workout.otherDuration')}</span>
             <div className="other-duration"><input type="number" inputMode="numeric" min="0" value={draft.durationMin ?? ''} onChange={(event) => setDraft({ ...draft, durationMin: event.target.value === '' ? undefined : Number(event.target.value) })} placeholder="45" /><small>min</small></div>
           </label>
           <label>
-            <span>Aktivitätslast <strong>{(draft.manualLoad ?? 1.5).toFixed(1)}</strong></span>
+            <span>{t('workout.otherLoad')} <strong>{formatLoad(draft.manualLoad ?? 1.5, lang)}</strong></span>
             <input type="range" min="0.5" max="3" step="0.5" value={draft.manualLoad ?? 1.5} onChange={(event) => setDraft({ ...draft, manualLoad: Number(event.target.value) })} />
-            <small>0,5 = sehr locker · 1,5 = normal · 3,0 = sehr hart</small>
+            <small>{t('workout.otherLoadScale')}</small>
           </label>
         </section>
       )}
@@ -546,10 +560,11 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         })}
       </div>}
 
-      {(draft.type === 'A' || draft.type === 'B') && (
+      {(draft.type === 'A' || draft.type === 'B' || draft.type === 'MOBILITY') && (
         <section className="mobility-card cooldown-card card">
-          <div><span className="eyebrow">Danach oder separat · optional</span><h3>Mobility / Dehnen</h3></div>
-          {mobilityItems.map((item) => {
+          <div><span className="eyebrow">{draft.type === 'MOBILITY' ? t('workout.mobilityChecklistEyebrow') : t('workout.cooldownEyebrow')}</span><h3>{draft.type === 'MOBILITY' ? t('workout.mobilityChecklistTitle') : t('workout.cooldownTitle')}</h3></div>
+          {mobilityItems.map((rawItem) => {
+            const item = localizeExercise(rawItem, lang);
             const checked = draft.mobilityDone.includes(item.id);
             const sourceId = `checklist-${draft.type}-${item.id}`;
             const timerActive = activeTimer?.sourceId === sourceId;
@@ -558,7 +573,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
                 <button className={`mobility-item-check ${checked ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })} aria-pressed={checked}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>
                 {item.timer && (
                   <button className={`mobility-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlChecklistTimer(item.name, sourceId, item.timer!.mode, item.timer!.defaultSec)}>
-                    {timerActive ? 'Stop' : item.timer.mode === 'countup' ? 'Start' : item.timer.mode === 'pace' ? `${item.timer.defaultSec ?? 30} s Tempo` : `${item.timer.defaultSec ?? 30} s`}
+                    {timerActive ? t('common.timerStop') : item.timer.mode === 'countup' ? t('workout.timerStart') : item.timer.mode === 'pace' ? t('common.timerPace', { sec: item.timer.defaultSec ?? 30 }) : t('common.timerSeconds', { sec: item.timer.defaultSec ?? 30 })}
                   </button>
                 )}
               </div>
@@ -567,29 +582,8 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         </section>
       )}
 
-      {draft.type === 'MOBILITY' && (
-        <section className="mobility-card cooldown-card card">
-          <div><span className="eyebrow">Checkliste · Last 0,0</span><h3>Mobility</h3></div>
-          {mobilityItems.map((item) => {
-            const checked = draft.mobilityDone.includes(item.id);
-            const sourceId = `checklist-${draft.type}-${item.id}`;
-            const timerActive = activeTimer?.sourceId === sourceId;
-            return (
-              <div className="mobility-checklist-item" key={item.id}>
-                <button className={`mobility-item-check ${checked ? 'checked' : ''}`} onClick={() => setDraft({ ...draft, mobilityDone: checked ? draft.mobilityDone.filter((id) => id !== item.id) : [...draft.mobilityDone, item.id] })} aria-pressed={checked}><i>{checked && <CheckIcon />}</i><span>{item.name}</span></button>
-                {item.timer && (
-                  <button className={`mobility-item-timer ${timerActive ? 'active' : ''}`} onClick={() => void controlChecklistTimer(item.name, sourceId, item.timer!.mode, item.timer!.defaultSec)}>
-                    {timerActive ? 'Stop' : item.timer.mode === 'countup' ? 'Start' : item.timer.mode === 'pace' ? `${item.timer.defaultSec ?? 30} s Tempo` : `${item.timer.defaultSec ?? 30} s`}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </section>
-      )}
-
-      <label className="note-field card"><span>Notiz · optional</span><textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder="Technik, Schmerz, Variante …" rows={2} /></label>
-      <div className="workout-actions"><button className="primary" onClick={save} disabled={saving || (externalRings && !draft.ringsAreas?.length) || (draft.type === 'OTHER' && !draft.activityName?.trim())}>{saving ? 'Speichert …' : externalRings && !draft.ringsAreas?.length ? 'Bereich auswählen' : draft.type === 'OTHER' && !draft.activityName?.trim() ? 'Aktivität benennen' : 'Einheit abschließen'}</button></div>
+      <label className="note-field card"><span>{t('workout.noteLabel')}</span><textarea value={draft.note} onChange={(event) => setDraft({ ...draft, note: event.target.value })} placeholder={t('workout.notePlaceholder')} rows={2} /></label>
+      <div className="workout-actions"><button className="primary" onClick={save} disabled={saving || (externalRings && !draft.ringsAreas?.length) || (draft.type === 'OTHER' && !draft.activityName?.trim())}>{saving ? t('common.saving') : externalRings && !draft.ringsAreas?.length ? t('workout.selectArea') : draft.type === 'OTHER' && !draft.activityName?.trim() ? t('workout.nameActivity') : t('workout.finish')}</button></div>
 
       {substituteIndex !== null && substituteExercise && (
         <SubstitutionSheet
@@ -628,23 +622,25 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
     });
   }
 
+  const lang = useLang();
+
   return (
     <div className="rings-logger">
       <section className="rings-source card">
-        <span className="eyebrow">Externes Training</span>
-        <h3>Details bleiben in „Die Ringe“</h3>
-        <p>Hier erfasst du nur, was du trainiert hast und wie belastend die gesamte Einheit war.</p>
+        <span className="eyebrow">{t('workout.ringsSourceEyebrow')}</span>
+        <h3>{t('workout.ringsSourceTitle')}</h3>
+        <p>{t('workout.ringsSourceBody')}</p>
       </section>
 
       <section className="rings-section card">
-        <span className="eyebrow">Was war dabei?</span>
+        <span className="eyebrow">{t('workout.ringsAreasEyebrow')}</span>
         <div className="rings-area-grid">
           {ringsAreaOptions.map((option) => {
             const selected = areas.includes(option.value);
             return (
               <button key={option.value} className={selected ? 'selected' : ''} aria-pressed={selected} onClick={() => toggleArea(option.value)}>
                 <i>{selected && <CheckIcon />}</i>
-                <span><strong>{option.label}</strong><small>{option.detail}</small></span>
+                <span><strong>{t(option.labelKey)}</strong><small>{t(option.detailKey)}</small></span>
               </button>
             );
           })}
@@ -653,44 +649,46 @@ function RingsLogger({ draft, update }: { draft: Draft; update: (draft: Draft) =
 
       {areas.includes('skills') && (
         <section className="rings-section card">
-          <span className="eyebrow">Welche Skills?</span>
+          <span className="eyebrow">{t('workout.ringsSkillsEyebrow')}</span>
           <div className="skill-picker">
-            {ringsSkillOptions.map((option) => (
-              <button key={option.value} className={skills.includes(option.value) ? 'selected' : ''} aria-pressed={skills.includes(option.value)} onClick={() => toggleSkill(option.value)}>{option.label}</button>
+            {ringsSkillValues.map((value) => (
+              <button key={value} className={skills.includes(value) ? 'selected' : ''} aria-pressed={skills.includes(value)} onClick={() => toggleSkill(value)}>{t(ringsSkillKey(value))}</button>
             ))}
           </div>
         </section>
       )}
 
       <section className="rings-section card">
-        <span className="eyebrow">Dauer</span>
+        <span className="eyebrow">{t('workout.ringsDurationEyebrow')}</span>
         <div className="rings-duration-picker">
           {[30, 45, 60, 90].map((minutes) => (
-            <button key={minutes} className={draft.durationMin === minutes ? 'selected' : ''} aria-pressed={draft.durationMin === minutes} onClick={() => update({ ...draft, durationMin: minutes })}>{minutes} min</button>
+            <button key={minutes} className={draft.durationMin === minutes ? 'selected' : ''} aria-pressed={draft.durationMin === minutes} onClick={() => update({ ...draft, durationMin: minutes })}>{t('common.minutes', { min: minutes })}</button>
           ))}
         </div>
       </section>
 
       <section className="rings-section card intensity-picker">
-        <span className="eyebrow">Gesamtbelastung</span>
+        <span className="eyebrow">{t('workout.ringsIntensityEyebrow')}</span>
         <div className="segmented rings-intensity">
           {(['chill', 'normal', 'hard'] as TrainingIntensity[]).map((value) => (
-            <button key={value} className={draft.intensity === value ? 'selected' : ''} aria-pressed={draft.intensity === value} onClick={() => update({ ...draft, intensity: value })}>{value === 'chill' ? 'Locker' : value === 'normal' ? 'Normal' : 'Hart'}</button>
+            <button key={value} className={draft.intensity === value ? 'selected' : ''} aria-pressed={draft.intensity === value} onClick={() => update({ ...draft, intensity: value })}>{t(trainingIntensityKey(value))}</button>
           ))}
         </div>
-        <small>Lastpunkte: {draft.intensity === 'chill' ? '1,0' : draft.intensity === 'hard' ? '2,0' : '1,5'}</small>
+        <small>{t('workout.ringsLoadPoints', { load: formatLoad(draft.intensity === 'chill' ? 1 : draft.intensity === 'hard' ? 2 : 1.5, lang) })}</small>
       </section>
     </div>
   );
 }
 
-const autoregulationOptions: { value: AutoregulationFeedback; label: string }[] = [
-  { value: 'easy', label: 'Leicht' },
-  { value: 'ok', label: 'Passt' },
-  { value: 'hard', label: 'Schwer' }
+const autoregulationOptions: { value: AutoregulationFeedback; key: 'workout.autoregulationEasy' | 'workout.autoregulationOk' | 'workout.autoregulationHard' }[] = [
+  { value: 'easy', key: 'workout.autoregulationEasy' },
+  { value: 'ok', key: 'workout.autoregulationOk' },
+  { value: 'hard', key: 'workout.autoregulationHard' }
 ];
 
-function ExerciseEditor({ exercise, entry, target, comeback, note, regression, autoregulation, onAutoregulate, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; regression?: string; autoregulation?: AutoregulationFeedback; onAutoregulate: (feedback: AutoregulationFeedback) => void; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
+function ExerciseEditor({ exercise: rawExercise, entry, target, comeback, note, regression, autoregulation, onAutoregulate, update, onRequestSwap }: { exercise: Exercise; entry: Entry; target: SetLog | null; comeback?: boolean; note?: string; regression?: string; autoregulation?: AutoregulationFeedback; onAutoregulate: (feedback: AutoregulationFeedback) => void; update: (index: number, set: SetLog) => void; onRequestSwap: () => void }) {
+  const lang = useLang();
+  const exercise = localizeExercise(rawExercise, lang);
   const hasWeight = exercise.metric === 'weight_reps';
   const youtubeUrl = exercise.youtubeQuery
     ? `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.youtubeQuery)}`
@@ -698,39 +696,40 @@ function ExerciseEditor({ exercise, entry, target, comeback, note, regression, a
   const showAutoregulation = hasWeight && exercise.incrementKg !== 0
     && entry.sets[0]?.successful === true && typeof entry.sets[0]?.kg === 'number'
     && entry.sets.some((set, index) => index > 0 && set.successful === undefined);
+  const secondaryLabel = exercise.metric === 'time' ? t('workout.setColSeconds') : exercise.metric === 'distance' || exercise.id === 'suitcase-carry' ? t('workout.setColMeters') : t('workout.setColReps');
   return (
     <section className="exercise-card card">
       <div className="exercise-header">
         <div>
           <h3>{exercise.name}</h3>
-          {exercise.perSide && <span className="side-badge">je Seite</span>}
+          {exercise.perSide && <span className="side-badge">{t('common.perSide')}</span>}
           {note && <p className="exercise-note">{note}</p>}
           {youtubeUrl && (
-            <a className="exercise-video-link" href={youtubeUrl} target="_blank" rel="noreferrer" aria-label={`Technikvideo für ${exercise.name} auf YouTube suchen`}>
-              <PlayIcon /> Technik ansehen
+            <a className="exercise-video-link" href={youtubeUrl} target="_blank" rel="noreferrer" aria-label={t('workout.videoLinkAria', { name: exercise.name })}>
+              <PlayIcon /> {t('workout.videoLink')}
             </a>
           )}
         </div>
         <div className="exercise-header-actions">
-          {target?.kg !== undefined && <span className={`target${comeback ? ' comeback' : ''}`}>{comeback ? 'Start' : 'Ziel'} {target.kg} kg</span>}
+          {target?.kg !== undefined && <span className={`target${comeback ? ' comeback' : ''}`}>{comeback ? t('workout.targetStart', { kg: formatKg(target.kg, lang) }) : t('workout.targetGoal', { kg: formatKg(target.kg, lang) })}</span>}
           {exercise.pattern && (
-            <button type="button" className="exercise-swap-button" onClick={onRequestSwap} aria-label={`${exercise.name} ersetzen`}>
+            <button type="button" className="exercise-swap-button" onClick={onRequestSwap} aria-label={t('workout.swapAria', { name: exercise.name })}>
               <SwapIcon />
             </button>
           )}
         </div>
       </div>
       <div className="set-table">
-        <div className={`set-labels ${hasWeight ? '' : 'no-weight'}`}><span>Satz</span>{hasWeight && <span>kg</span>}<span>{exercise.metric === 'time' ? 'Sek.' : exercise.metric === 'distance' || exercise.id === 'suitcase-carry' ? 'Meter' : 'Wdh.'}</span><span>OK</span></div>
+        <div className={`set-labels ${hasWeight ? '' : 'no-weight'}`}><span>{t('workout.setColSet')}</span>{hasWeight && <span>{t('workout.setColKg')}</span>}<span>{secondaryLabel}</span><span>{t('workout.setColOk')}</span></div>
         {entry.sets.map((set, index) => <SetEditor key={index} index={index} exercise={exercise} set={set} update={(value) => update(index, value)} />)}
       </div>
       {showAutoregulation && (
         <div className="autoregulation">
-          <span className="eyebrow">Satz 1 – wie war's?</span>
+          <span className="eyebrow">{t('workout.autoregulationEyebrow')}</span>
           <div className="segmented">
             {autoregulationOptions.map((option) => (
               <button key={option.value} type="button" className={autoregulation === option.value ? 'selected' : ''} aria-pressed={autoregulation === option.value} onClick={() => onAutoregulate(option.value)}>
-                {option.label}
+                {t(option.key)}
               </button>
             ))}
           </div>
@@ -738,7 +737,7 @@ function ExerciseEditor({ exercise, entry, target, comeback, note, regression, a
       )}
       {regression && (
         <details className="exercise-regression">
-          <summary>Zu schwer?</summary>
+          <summary>{t('workout.regressionSummary')}</summary>
           <p>{regression}</p>
         </details>
       )}
@@ -756,13 +755,13 @@ function SetEditor({ index, exercise, set, update }: { index: number; exercise: 
     <div className="set-with-timer">
       <div className={`set-row ${hasWeight ? '' : 'no-weight'}`}>
         <strong>{index + 1}</strong>
-        {hasWeight && <input inputMode="decimal" aria-label={`Satz ${index + 1} Kilogramm`} value={set.kg ?? ''} placeholder="–" onChange={(event) => number('kg', event.target.value)} />}
-        <input inputMode="decimal" aria-label={`Satz ${index + 1} Wert`} value={set[secondaryKey] ?? ''} placeholder="–" onChange={(event) => number(secondaryKey, event.target.value)} />
+        {hasWeight && <input inputMode="decimal" aria-label={t('workout.setKgAria', { n: index + 1 })} value={set.kg ?? ''} placeholder="–" onChange={(event) => number('kg', event.target.value)} />}
+        <input inputMode="decimal" aria-label={t('workout.setValueAria', { n: index + 1 })} value={set[secondaryKey] ?? ''} placeholder="–" onChange={(event) => number(secondaryKey, event.target.value)} />
         <button
           type="button"
           className={set.successful === true ? 'set-success' : set.successful === false ? 'set-failed' : 'set-pending'}
           onClick={() => update({ ...set, successful: set.successful === undefined ? true : set.successful === true ? false : undefined })}
-          aria-label={set.successful === true ? 'Erfolgreich geloggt' : set.successful === false ? 'Fehlversuch' : 'Satz loggen'}
+          aria-label={set.successful === true ? t('workout.setSuccessLogged') : set.successful === false ? t('workout.setFailedLabel') : t('workout.setLogAction')}
         >{set.successful === true ? <CheckIcon /> : set.successful === false ? '×' : '○'}</button>
       </div>
       {(exercise.metric === 'time' || exercise.timer) && <SetTimerControl exercise={exercise} index={index} set={set} update={update} />}
@@ -788,7 +787,7 @@ function SetTimerControl({ exercise, index, set, update }: { exercise: Exercise;
     await startTimer({
       mode: config.mode,
       kind: 'exercise',
-      label: `${exercise.name} · Satz ${index + 1}`,
+      label: t('workout.timerSetLabel', { name: exercise.name, n: index + 1 }),
       sourceId,
       defaultSec: duration,
       endTimestamp: config.mode === 'countup' ? undefined : Date.now() + duration * 1000
@@ -796,23 +795,23 @@ function SetTimerControl({ exercise, index, set, update }: { exercise: Exercise;
   }
 
   const label = active
-    ? config.mode === 'countup' ? 'Stoppen & Zeit übernehmen' : 'Timer stoppen'
+    ? config.mode === 'countup' ? t('workout.timerStopKeepTime') : t('common.timerStopFull')
     : config.mode === 'countup'
-      ? set.sec !== undefined ? 'Erneut messen' : 'Stoppuhr starten'
-      : config.mode === 'pace' ? `${seconds} s Tempo starten` : `${seconds} s Countdown`;
+      ? set.sec !== undefined ? t('workout.timerRemeasure') : t('workout.timerStartStopwatch')
+      : config.mode === 'pace' ? t('workout.timerStartPace', { sec: seconds }) : t('workout.timerStartCountdown', { sec: seconds });
   return (
     <div className={`set-timer-controls ${exercise.metric !== 'time' && config.mode === 'countup' ? 'with-input' : ''}`}>
       {exercise.metric !== 'time' && config.mode === 'countup' && (
         <label className="direct-time-input">
-          <span>Zeit</span>
+          <span>{t('workout.directTimeLabel')}</span>
           <input
             inputMode="decimal"
             type="number"
             min="0"
             step="0.01"
-            aria-label={`Satz ${index + 1} Zeit in Sekunden`}
+            aria-label={t('workout.setTimeAria', { n: index + 1 })}
             value={set.sec ?? ''}
-            placeholder="Sek."
+            placeholder={t('workout.directTimePlaceholder')}
             onChange={(event) => update({ ...set, sec: event.target.value === '' ? undefined : Number(event.target.value) })}
           />
         </label>
@@ -822,7 +821,7 @@ function SetTimerControl({ exercise, index, set, update }: { exercise: Exercise;
   );
 }
 
-function SprintStats({ sessions, entries }: { sessions: Session[]; entries: Entry[] }) {
+function SprintStats({ sessions, entries, lang }: { sessions: Session[]; entries: Entry[]; lang: Lang }) {
   const sprintSets = entries.find((entry) => entry.exerciseId === 'sprint')?.sets ?? [];
   const distance = sprintSets.find((set) => set.distanceM)?.distanceM;
   const currentTimes = sprintSets.flatMap((set) => typeof set.sec === 'number' && set.sec > 0 ? [set.sec] : []);
@@ -838,75 +837,77 @@ function SprintStats({ sessions, entries }: { sessions: Session[]; entries: Entr
   const latestTimes = latest?.entries.find((entry) => entry.exerciseId === 'sprint')?.sets
     .flatMap((set) => set.distanceM === distance && typeof set.sec === 'number' && set.sec > 0 ? [set.sec] : []) ?? [];
   const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
-  const value = (seconds: number | undefined) => seconds === undefined ? '–' : `${seconds.toFixed(2)} s`;
+  const value = (seconds: number | undefined) => seconds === undefined ? '–' : t('workout.sprintSeconds', { sec: formatFixed(seconds, lang, 2) });
 
   return (
     <section className="sprint-stats card">
-      <div><span className="eyebrow">{distance ?? '–'} m Statistik</span><h3>Zeiten</h3></div>
+      <div><span className="eyebrow">{t('workout.sprintStatsEyebrow', { distance: distance ?? '–' })}</span><h3>{t('workout.sprintStatsTitle')}</h3></div>
       <div className="sprint-stat-grid">
-        <span><small>Diese Einheit · schnellste</small><strong>{value(currentTimes.length ? Math.min(...currentTimes) : undefined)}</strong></span>
-        <span><small>Diese Einheit · Schnitt</small><strong>{value(currentTimes.length ? average(currentTimes) : undefined)}</strong></span>
-        <span><small>Letzte Einheit</small><strong>{value(latestTimes.length ? average(latestTimes) : undefined)}</strong></span>
-        <span><small>Bestzeit</small><strong>{value(history.length ? Math.min(...history.map((set) => set.sec!)) : undefined)}</strong></span>
+        <span><small>{t('workout.sprintStatFastest')}</small><strong>{value(currentTimes.length ? Math.min(...currentTimes) : undefined)}</strong></span>
+        <span><small>{t('workout.sprintStatAverage')}</small><strong>{value(currentTimes.length ? average(currentTimes) : undefined)}</strong></span>
+        <span><small>{t('workout.sprintStatLast')}</small><strong>{value(latestTimes.length ? average(latestTimes) : undefined)}</strong></span>
+        <span><small>{t('workout.sprintStatBest')}</small><strong>{value(history.length ? Math.min(...history.map((set) => set.sec!)) : undefined)}</strong></span>
       </div>
     </section>
   );
 }
 
-const boardOffAssessmentQuestions: { key: keyof Omit<BoardOffAssessment, 'deadHang'>; q: string }[] = [
-  { key: 'hasRig', q: 'Hast du eine Trapez-Aufhängung — Haken in einer tragfähigen Schlaufe, Hände frei?' },
-  { key: 'activeCompression', q: 'Langsitz, Beine gestreckt und geschlossen: beide Fersen ≥ 2 Finger vom Boden, 3 s halten?' },
-  { key: 'longSit30s', q: 'Langsitz 30 s aufrecht, ohne Rundrücken oder Beckenkippen nach hinten?' },
-  { key: 'shoulderFlexion', q: 'Rücken an der Wand, Arme gestreckt über Kopf: Handrücken berühren die Wand, Rippen unten?' },
-  { key: 'tailGrab', q: 'Sitzt der Tail Grab im Sprung sicher?' },
-  { key: 'oneFooter', q: 'Sitzt der One Footer beidseitig?' },
-  { key: 'boardOffByFin', q: 'Sitzt der Board Off by Fin auf dem Wasser?' },
-  { key: 'boardOffByHandle', q: 'Sitzt der Board Off by Handle auf dem Wasser?' }
+const boardOffAssessmentQuestions: { key: keyof Omit<BoardOffAssessment, 'deadHang'>; qKey: 'workout.assessmentQHasRig' | 'workout.assessmentQActiveCompression' | 'workout.assessmentQLongSit30s' | 'workout.assessmentQShoulderFlexion' | 'workout.assessmentQTailGrab' | 'workout.assessmentQOneFooter' | 'workout.assessmentQBoardOffByFin' | 'workout.assessmentQBoardOffByHandle' }[] = [
+  { key: 'hasRig', qKey: 'workout.assessmentQHasRig' },
+  { key: 'activeCompression', qKey: 'workout.assessmentQActiveCompression' },
+  { key: 'longSit30s', qKey: 'workout.assessmentQLongSit30s' },
+  { key: 'shoulderFlexion', qKey: 'workout.assessmentQShoulderFlexion' },
+  { key: 'tailGrab', qKey: 'workout.assessmentQTailGrab' },
+  { key: 'oneFooter', qKey: 'workout.assessmentQOneFooter' },
+  { key: 'boardOffByFin', qKey: 'workout.assessmentQBoardOffByFin' },
+  { key: 'boardOffByHandle', qKey: 'workout.assessmentQBoardOffByHandle' }
 ];
 
 function BoardOffAssessmentForm({ onDone }: { onDone: (assessment: BoardOffAssessment) => void | Promise<void> }) {
+  const lang = useLang();
   const [answers, setAnswers] = useState<Partial<BoardOffAssessment>>({});
   const complete = boardOffAssessmentQuestions.every(({ key }) => typeof answers[key] === 'boolean') && answers.deadHang !== undefined;
   const recommended = complete ? recommendBoardOffLevel(answers as BoardOffAssessment) : null;
+  const recommendedLevel = recommended !== null ? localizeBoardOffLevel(boardOffLevels[recommended], lang) : null;
   return (
     <div className="boardoff-assessment">
       <section className="card boardoff-assessment-intro">
-        <span className="eyebrow">So funktioniert's</span>
-        <p>Ein paar Fragen bestimmen deine Startstufe. Später jederzeit in den Einstellungen änderbar.</p>
+        <span className="eyebrow">{t('workout.assessmentHowEyebrow')}</span>
+        <p>{t('workout.assessmentHowBody')}</p>
       </section>
       <section className="card boardoff-questions">
-        {boardOffAssessmentQuestions.map(({ key, q }) => (
+        {boardOffAssessmentQuestions.map(({ key, qKey }) => (
           <div className="boardoff-question" key={key}>
-            <p>{q}</p>
+            <p>{t(qKey)}</p>
             <div className="segmented">
-              <button type="button" className={answers[key] === true ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: true })}>Ja</button>
-              <button type="button" className={answers[key] === false ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: false })}>Nein</button>
+              <button type="button" className={answers[key] === true ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: true })}>{t('common.yes')}</button>
+              <button type="button" className={answers[key] === false ? 'selected' : ''} onClick={() => setAnswers({ ...answers, [key]: false })}>{t('common.no')}</button>
             </div>
           </div>
         ))}
         <div className="boardoff-question">
-          <p>Dead Hang beidhändig, passiv — wie lange hältst du?</p>
+          <p>{t('workout.assessmentQDeadHang')}</p>
           <div className="segmented">
             {(['under20', '20to30', 'over30'] as const).map((value) => (
               <button type="button" key={value} className={answers.deadHang === value ? 'selected' : ''} onClick={() => setAnswers({ ...answers, deadHang: value })}>
-                {value === 'under20' ? '< 20 s' : value === '20to30' ? '20–30 s' : '> 30 s'}
+                {value === 'under20' ? t('workout.assessmentDeadHangUnder20') : value === '20to30' ? t('workout.assessmentDeadHang20to30') : t('workout.assessmentDeadHangOver30')}
               </button>
             ))}
           </div>
         </div>
       </section>
-      {recommended !== null && (
+      {recommended !== null && recommendedLevel !== null && (
         <section className="card boardoff-recommendation">
-          <span className="eyebrow">Empfehlung</span>
-          <h3>Stufe {recommended} · {boardOffLevels[recommended].label}</h3>
-          <p>{recommended === 0 ? 'Erst das Fundament: Kompression, Langsitz-Haltung, Dead Hang.' : `Weiter zur nächsten Stufe mit: ${boardOffLevels[recommended].gate}`}</p>
-          {answers.hasRig === false && <p className="muted">Ohne Aufhängung laufen die Trapez-Hang-Übungen als Bodenvariante.</p>}
-          {answers.shoulderFlexion === false && <p className="muted">Schulterflexion eingeschränkt — Überkopf-Positionen zuerst mobilisieren.</p>}
+          <span className="eyebrow">{t('workout.assessmentRecommendationEyebrow')}</span>
+          <h3>{t('workout.assessmentRecommendationTitle', { level: recommended, label: recommendedLevel.label })}</h3>
+          <p>{recommended === 0 ? t('workout.assessmentRecommendation0') : t('workout.assessmentRecommendationNext', { gate: recommendedLevel.gate })}</p>
+          {answers.hasRig === false && <p className="muted">{t('workout.assessmentNoRig')}</p>}
+          {answers.shoulderFlexion === false && <p className="muted">{t('workout.assessmentShoulderFlexion')}</p>}
         </section>
       )}
       <div className="workout-actions">
         <button className="primary" disabled={!complete} onClick={() => complete && void onDone(answers as BoardOffAssessment)}>
-          {complete ? `Stufe ${recommended} übernehmen` : 'Alle Fragen beantworten'}
+          {complete ? t('workout.assessmentApply', { level: recommended ?? '' }) : t('workout.assessmentAnswerAll')}
         </button>
       </div>
     </div>

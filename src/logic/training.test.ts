@@ -63,7 +63,9 @@ describe('deloadDue', () => {
   });
   it('triggers above the configured rolling load threshold', () => {
     const sessions = ['19', '20', '21', '22', '23', '24'].map((day) => session({ date: `2026-08-${day}`, type: 'KITE', intensity: 'hard' }));
-    expect(deloadDue(sessions, settings, '2026-08-25').reason).toContain('12.0');
+    expect(deloadDue(sessions, settings, '2026-08-25').reason).toEqual({
+      key: 'deload.reason.load', params: { load: '12.0', limit: 10 }
+    });
   });
   it('does not trigger at the exact threshold', () => {
     const sessions = [1, 2, 3, 4, 5].map((createdAt) => session({ createdAt, feel: 'good' }));
@@ -85,7 +87,7 @@ describe('deloadDue', () => {
       session({ date: '2026-08-25', feel: 'wrecked', createdAt: 3 }),
       session({ date: '2026-08-23', feel: 'wrecked', createdAt: 99 })
     ];
-    expect(deloadDue(sessions, { loadThreshold7d: 99 }, '2026-08-25').reason).toContain('Drei Einheiten');
+    expect(deloadDue(sessions, { loadThreshold7d: 99 }, '2026-08-25').reason).toEqual({ key: 'deload.reason.wrecked' });
   });
 });
 
@@ -141,7 +143,7 @@ describe('comebackState', () => {
     const sessions = [session({ date: '2026-08-03', type: 'B' })];
     const state = comebackState(sessions, '2026-08-25');
     expect(state).toMatchObject({ active: true, daysSinceLast: 22, factor: 0.8 });
-    expect(state.reason).toContain('3 Wochen');
+    expect(state.reason).toEqual({ key: 'comeback.reason', params: { weeks: 3, percent: 80 } });
   });
   it('ignores kite and sprint sessions in the gap', () => {
     const sessions = [
@@ -220,12 +222,12 @@ describe('sprintWeek', () => {
 describe('training warnings', () => {
   it('warns for Tag A on the day after a hard kite session', () => {
     const sessions = [session({ date: '2026-08-24', type: 'KITE', intensity: 'hard' })];
-    expect(strengthWarnings('A', '2026-08-25', sessions)[0]).toContain('Rücken ist von gestern');
+    expect(strengthWarnings('A', '2026-08-25', sessions)[0]).toEqual({ key: 'warning.lowerBack' });
     expect(strengthWarnings('B', '2026-08-25', sessions)).toEqual([]);
   });
 
   it('flags a KB-only strength week', () => {
-    expect(weeklyStrengthWarning('2026-08-25', [session({ type: 'KB' })])).toContain('keine schwere Beinarbeit');
+    expect(weeklyStrengthWarning('2026-08-25', [session({ type: 'KB' })])).toEqual({ key: 'warning.kbWithoutStrength' });
     expect(weeklyStrengthWarning('2026-08-25', [session({ type: 'KB' }), session({ type: 'A' })])).toBeNull();
   });
 });

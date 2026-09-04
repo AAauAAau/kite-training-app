@@ -1,12 +1,25 @@
 import { useRef, useState } from 'react';
+import { t } from '../i18n';
+import { bodyRegionLabel } from '../logic/injury';
+import { useLang } from '../i18n/react';
 import { exportBackup } from '../db';
-import { addDays, daysBetween, formatShortDate, localDate } from '../logic/date';
-import { bodyRegionLabels, injuryState, selectableBodyRegions } from '../logic/injury';
+import { addDays, daysBetween, formatShortDate, localDate, weekdayLabels } from '../logic/date';
+import { formatKg, localeFor, parseDecimal } from '../logic/format';
+import { injuryState, selectableBodyRegions } from '../logic/injury';
 import { useAppStore } from '../store';
-import type { BodyRegion } from '../types';
+import type { BodyRegion, Lang } from '../types';
+
+const GYM_DAYS: number[] = [1, 2, 3, 4, 5, 6, 0]; // Mo … So, passend zu weekdayLabels()
+const LANGUAGES: { value: Lang; key: 'settings.languageDe' | 'settings.languageEn' | 'settings.languageFr' }[] = [
+  { value: 'de', key: 'settings.languageDe' },
+  { value: 'en', key: 'settings.languageEn' },
+  { value: 'fr', key: 'settings.languageFr' }
+];
 
 export function SettingsView() {
   const { settings, addBodyweight, updateSettings, restoreBackup, sessions } = useAppStore();
+  const lang = useLang();
+  const locale = localeFor(lang);
   const [weight, setWeight] = useState(settings.bodyweightLog.at(-1)?.kg.toString() ?? '86');
   const [focusTag, setFocusTag] = useState('');
   const [message, setMessage] = useState('');
@@ -15,14 +28,15 @@ export function SettingsView() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const today = localDate();
+  const dayLabels = weekdayLabels(locale);
   const injuries = [...(settings.injuries ?? [])].sort((a, b) => a.until.localeCompare(b.until));
   const expiredRegions = new Set(injuryState(settings, today).expired.map((injury) => injury.region));
 
   async function saveWeight() {
-    const kg = Number(weight.replace(',', '.'));
-    if (!Number.isFinite(kg) || kg < 30 || kg > 250) return setMessage('Bitte plausibles Gewicht eingeben.');
+    const kg = parseDecimal(weight);
+    if (!Number.isFinite(kg) || kg < 30 || kg > 250) return setMessage(t('settings.weightInvalid'));
     await addBodyweight(kg);
-    setMessage(`${kg.toFixed(1)} kg für heute gespeichert.`);
+    setMessage(t('settings.weightSaved', { kg: formatKg(kg, lang) }));
   }
 
   async function downloadBackup() {
@@ -34,22 +48,22 @@ export function SettingsView() {
     anchor.download = `kite-strength-backup-${localDate()}.json`;
     anchor.click();
     URL.revokeObjectURL(url);
-    setMessage(`${data.sessions.length} Einheiten exportiert.`);
+    setMessage(t('settings.backupExported', { n: data.sessions.length }));
   }
 
   async function importFile(file?: File) {
     if (!file) return;
     try {
       await restoreBackup(JSON.parse(await file.text()));
-      setMessage('Backup vollständig importiert.');
+      setMessage(t('settings.backupImported'));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Import fehlgeschlagen.');
+      setMessage(error instanceof Error ? error.message : t('settings.backupImportFailed'));
     } finally {
       if (inputRef.current) inputRef.current.value = '';
     }
   }
 
-  function toggleHamburgDay(day: number) {
+  function toggleGymDay(day: number) {
     const days = settings.hamburgDays.includes(day)
       ? settings.hamburgDays.filter((value) => value !== day)
       : [...settings.hamburgDays, day].sort();
@@ -60,16 +74,16 @@ export function SettingsView() {
     const tag = focusTag.trim();
     if (!tag) return;
     if (settings.kiteFocusTags.some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase())) {
-      return setMessage('Dieser Skill-Tag ist bereits vorhanden.');
+      return setMessage(t('settings.tagsDuplicate'));
     }
     await updateSettings({ kiteFocusTags: [...settings.kiteFocusTags, tag] });
     setFocusTag('');
-    setMessage(`„${tag}“ hinzugefügt.`);
+    setMessage(t('settings.tagsAdded', { tag }));
   }
 
   async function removeFocusTag(tag: string) {
     await updateSettings({ kiteFocusTags: settings.kiteFocusTags.filter((value) => value !== tag) });
-    setMessage(`„${tag}“ aus der Auswahlliste entfernt.`);
+    setMessage(t('settings.tagsRemoved', { tag }));
   }
 
   async function startInjury() {
@@ -78,56 +92,66 @@ export function SettingsView() {
     const until = addDays(since, injuryDays - 1);
     const next = [...(settings.injuries ?? []).filter((injury) => injury.region !== injuryRegion), { region: injuryRegion, since, until }];
     await updateSettings({ injuries: next });
-    setMessage(`Schonung ${bodyRegionLabels[injuryRegion]} bis ${formatShortDate(until)} gespeichert.`);
+    setMessage(t('settings.injurySaved', { region: t(bodyRegionLabel(injuryRegion)), date: formatShortDate(until, locale) }));
     setInjuryRegion(null);
   }
 
   async function endInjury(region: BodyRegion) {
     await updateSettings({ injuries: (settings.injuries ?? []).filter((injury) => injury.region !== region) });
-    setMessage(`Schonung ${bodyRegionLabels[region]} beendet.`);
+    setMessage(t('settings.injuryEnded', { region: t(bodyRegionLabel(region)) }));
   }
 
   return (
     <main className="page settings-page">
-      <header className="page-header"><div><span className="eyebrow">Lokal auf diesem Gerät</span><h1>Einstellungen</h1></div></header>
+      <header className="page-header"><div><span className="eyebrow">{t('settings.eyebrow')}</span><h1>{t('settings.title')}</h1></div></header>
+
       <section className="settings-card card">
-        <span className="eyebrow">Körpergewicht · wöchentlich</span><h2>Aktuelles Gewicht</h2>
-        <div className="weight-input"><input inputMode="decimal" value={weight} onChange={(event) => setWeight(event.target.value)} /><span>kg</span><button className="primary" onClick={saveWeight}>Speichern</button></div>
-        <small>{settings.bodyweightLog.length} Einträge gespeichert</small>
+        <span className="eyebrow">{t('settings.languageEyebrow')}</span><h2>{t('settings.languageTitle')}</h2>
+        <div className="segmented">
+          {LANGUAGES.map((option) => (
+            <button key={option.value} className={lang === option.value ? 'selected' : ''} aria-pressed={lang === option.value} onClick={() => void updateSettings({ lang: option.value })}>{t(option.key)}</button>
+          ))}
+        </div>
+      </section>
+
+      <section className="settings-card card">
+        <span className="eyebrow">{t('settings.weightEyebrow')}</span><h2>{t('settings.weightTitle')}</h2>
+        <div className="weight-input"><input inputMode="decimal" value={weight} onChange={(event) => setWeight(event.target.value)} /><span>kg</span><button className="primary" onClick={saveWeight}>{t('common.save')}</button></div>
+        <small>{settings.bodyweightLog.length === 1 ? t('settings.weightCountOne') : t('settings.weightCountOther', { n: settings.bodyweightLog.length })}</small>
       </section>
       <section className="settings-card card">
-        <span className="eyebrow">Regeneration</span><h2>7-Tage-Lastlimit</h2>
+        <span className="eyebrow">{t('settings.loadEyebrow')}</span><h2>{t('settings.loadTitle')}</h2>
         <div className="threshold-control"><input type="range" min="6" max="18" step="0.5" value={settings.loadThreshold7d} onChange={(event) => updateSettings({ loadThreshold7d: Number(event.target.value) })} /><strong>{settings.loadThreshold7d}</strong></div>
       </section>
       <section className="settings-card card">
-        <span className="eyebrow">Wochenplanung</span><h2>Gym-Tage</h2>
-        <p>An diesen Tagen werden Tag A und Tag B eingeplant.</p>
+        <span className="eyebrow">{t('settings.gymDaysEyebrow')}</span><h2>{t('settings.gymDaysTitle')}</h2>
+        <p>{t('settings.gymDaysBody')}</p>
         <div className="day-picker">
-          {[['Mo', 1], ['Di', 2], ['Mi', 3], ['Do', 4], ['Fr', 5], ['Sa', 6], ['So', 0]].map(([label, day]) => (
-            <button key={day} className={settings.hamburgDays.includes(Number(day)) ? 'selected' : ''} onClick={() => toggleHamburgDay(Number(day))}>{label}</button>
+          {GYM_DAYS.map((day, index) => (
+            <button key={day} className={settings.hamburgDays.includes(day) ? 'selected' : ''} onClick={() => toggleGymDay(day)}>{dayLabels[index]}</button>
           ))}
         </div>
       </section>
       {settings.boardOffLevel !== undefined && (
         <section className="settings-card card">
-          <span className="eyebrow">Board-Off</span><h2>Progression</h2>
-          <p>Deine aktuelle Stufe. Höherstufen, sobald du das Gate der Stufe schaffst.</p>
+          <span className="eyebrow">{t('settings.boardOffEyebrow')}</span><h2>{t('settings.boardOffTitle')}</h2>
+          <p>{t('settings.boardOffBody')}</p>
           <div className="segmented">
             {[0, 1, 2, 3, 4, 5].map((level) => (
               <button key={level} className={settings.boardOffLevel === level ? 'selected' : ''} onClick={() => void updateSettings({ boardOffLevel: level })}>{level}</button>
             ))}
           </div>
-          <p>Trapez-Aufhängung vorhanden?</p>
+          <p>{t('settings.boardOffRigQuestion')}</p>
           <div className="segmented">
-            <button className={(settings.boardOffHasRig ?? true) ? 'selected' : ''} onClick={() => void updateSettings({ boardOffHasRig: true })}>Ja</button>
-            <button className={(settings.boardOffHasRig ?? true) ? '' : 'selected'} onClick={() => void updateSettings({ boardOffHasRig: false })}>Nein</button>
+            <button className={(settings.boardOffHasRig ?? true) ? 'selected' : ''} onClick={() => void updateSettings({ boardOffHasRig: true })}>{t('common.yes')}</button>
+            <button className={(settings.boardOffHasRig ?? true) ? '' : 'selected'} onClick={() => void updateSettings({ boardOffHasRig: false })}>{t('common.no')}</button>
           </div>
-          <button className="secondary" onClick={() => { void updateSettings({ boardOffLevel: undefined }); setMessage('Einstufung zurückgesetzt — beim nächsten Board-Off-Start neu.'); }}>Einstufung wiederholen</button>
+          <button className="secondary" onClick={() => { void updateSettings({ boardOffLevel: undefined }); setMessage(t('settings.boardOffReassessDone')); }}>{t('settings.boardOffReassess')}</button>
         </section>
       )}
       <section className="settings-card card">
-        <span className="eyebrow">Schonung</span><h2>Verletzung / gereizte Region</h2>
-        <p>Betroffene Übungen werden in Tag A/B/KB und Board-Off automatisch getauscht oder ausgelassen. Kein medizinischer Rat.</p>
+        <span className="eyebrow">{t('settings.injuryEyebrow')}</span><h2>{t('settings.injuryTitle')}</h2>
+        <p>{t('settings.injuryBody')}</p>
         {injuries.length > 0 && (
           <div className="injury-list">
             {injuries.map((injury) => {
@@ -136,12 +160,12 @@ export function SettingsView() {
               return (
                 <div key={injury.region}>
                   <span>
-                    <b>{bodyRegionLabels[injury.region]}</b>
+                    <b>{t(bodyRegionLabel(injury.region))}</b>
                     <small className={expired ? 'injury-expired' : undefined}>
-                      {expired ? 'abgelaufen — Entscheidung fällig' : remaining === 0 ? 'endet heute' : `noch ${remaining} Tage`}
+                      {expired ? t('settings.injuryExpired') : remaining === 0 ? t('settings.injuryEndsToday') : t('common.daysRemainingOther', { n: remaining })}
                     </small>
                   </span>
-                  <button onClick={() => void endInjury(injury.region)}>Beenden</button>
+                  <button onClick={() => void endInjury(injury.region)}>{t('common.end')}</button>
                 </div>
               );
             })}
@@ -154,40 +178,40 @@ export function SettingsView() {
               className={injuryRegion === region ? 'selected' : ''}
               aria-pressed={injuryRegion === region}
               onClick={() => setInjuryRegion(injuryRegion === region ? null : region)}
-            >{bodyRegionLabels[region]}</button>
+            >{t(bodyRegionLabel(region))}</button>
           ))}
         </div>
         <div className="segmented">
           {[7, 14, 28].map((days) => (
             <button key={days} className={injuryDays === days ? 'selected' : ''} aria-pressed={injuryDays === days} onClick={() => setInjuryDays(days)}>
-              {days === 7 ? '1 Woche' : `${days / 7} Wochen`}
+              {days === 7 ? t('settings.injuryDurationOne') : t('settings.injuryDurationOther', { n: days / 7 })}
             </button>
           ))}
         </div>
         <button className="primary" disabled={!injuryRegion} onClick={() => void startInjury()}>
-          {injuryRegion ? `Schonung ${bodyRegionLabels[injuryRegion]} starten` : 'Region wählen'}
+          {injuryRegion ? t('settings.injuryStart', { region: t(bodyRegionLabel(injuryRegion)) }) : t('settings.injuryChooseRegion')}
         </button>
       </section>
       <section className="settings-card card">
-        <span className="eyebrow">Kite-Log</span><h2>Skill-Tags</h2>
-        <p>Diese Tags stehen in den optionalen Kite-Details zur Auswahl. Bereits geloggte Tags bleiben beim Entfernen erhalten.</p>
+        <span className="eyebrow">{t('settings.tagsEyebrow')}</span><h2>{t('settings.tagsTitle')}</h2>
+        <p>{t('settings.tagsBody')}</p>
         <div className="focus-tag-list">
           {settings.kiteFocusTags.map((tag) => (
-            <span key={tag}>{tag}<button aria-label={`${tag} entfernen`} onClick={() => void removeFocusTag(tag)}>×</button></span>
+            <span key={tag}>{tag}<button aria-label={t('settings.tagsRemoveAria', { tag })} onClick={() => void removeFocusTag(tag)}>×</button></span>
           ))}
         </div>
         <div className="focus-tag-add">
-          <input value={focusTag} maxLength={40} placeholder="Neuer Trick" aria-label="Neuer Skill-Tag" onChange={(event) => setFocusTag(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addFocusTag(); }} />
-          <button className="secondary" onClick={() => void addFocusTag()}>Hinzufügen</button>
+          <input value={focusTag} maxLength={40} placeholder={t('settings.tagsPlaceholder')} aria-label={t('settings.tagsInputAria')} onChange={(event) => setFocusTag(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') void addFocusTag(); }} />
+          <button className="secondary" onClick={() => void addFocusTag()}>{t('common.add')}</button>
         </div>
       </section>
       <section className="settings-card card">
-        <span className="eyebrow">Backup</span><h2>Export / Import</h2><p>Alle {sessions.length} Einheiten, Übungen und Einstellungen als eine JSON-Datei.</p>
-        <div className="backup-actions"><button className="primary" onClick={downloadBackup}>JSON exportieren</button><button className="secondary" onClick={() => inputRef.current?.click()}>JSON importieren</button></div>
+        <span className="eyebrow">{t('settings.backupEyebrow')}</span><h2>{t('settings.backupTitle')}</h2><p>{t('settings.backupBody', { n: sessions.length })}</p>
+        <div className="backup-actions"><button className="primary" onClick={downloadBackup}>{t('settings.backupExport')}</button><button className="secondary" onClick={() => inputRef.current?.click()}>{t('settings.backupImport')}</button></div>
         <input ref={inputRef} className="visually-hidden" type="file" accept="application/json,.json" onChange={(event) => importFile(event.target.files?.[0])} />
       </section>
       {message && <div className="toast-message" role="status">{message}</div>}
-      <footer className="privacy-note">Keine Cloud. Keine Analytics. Deine Daten bleiben in diesem Browser.</footer>
+      <footer className="privacy-note">{t('settings.privacy')}</footer>
     </main>
   );
 }

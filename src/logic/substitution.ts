@@ -1,18 +1,14 @@
+import type { MessageKey } from '../i18n';
 import type { Equipment, Exercise } from '../types';
 
 const equipmentOrder: Equipment[] = [
   'barbell', 'dumbbell', 'kettlebell', 'machine', 'bodyweight', 'band', 'rings'
 ];
 
-export const equipmentLabels: Record<Equipment, string> = {
-  barbell: 'Langhantel',
-  dumbbell: 'Kurzhantel',
-  kettlebell: 'Kettlebell',
-  machine: 'Maschine',
-  bodyweight: 'Körpergewicht',
-  band: 'Band',
-  rings: 'Ringe'
-};
+/** Message-Key für das Gerätelabel — die Komponente übersetzt. */
+export function equipmentLabel(equipment: Equipment): MessageKey {
+  return `equipment.${equipment}`;
+}
 
 /**
  * Alternativen zur gleichen Bewegungsmuster-Kategorie, ohne die Quelle selbst und ohne

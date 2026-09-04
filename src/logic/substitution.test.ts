@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { exercises, templates } from '../data/seed';
 import type { Exercise } from '../types';
-import { alternativesFor, groupByEquipment } from './substitution';
+import { alternativesFor, equipmentLabel, groupByEquipment } from './substitution';
 
 const fixture: Exercise[] = [
   { id: 'a', name: 'Zebra', category: 'strength', metric: 'weight_reps', pattern: 'hinge', equipment: 'barbell' },
@@ -31,6 +31,13 @@ describe('alternativesFor', () => {
   it('returns an empty list for an unknown id or an exercise without a pattern', () => {
     expect(alternativesFor('missing', fixture)).toEqual([]);
     expect(alternativesFor('e', fixture)).toEqual([]);
+  });
+});
+
+describe('equipmentLabel', () => {
+  it('returns the message key, not a German word', () => {
+    expect(equipmentLabel('barbell')).toBe('equipment.barbell');
+    expect(equipmentLabel('rings')).toBe('equipment.rings');
   });
 });
 

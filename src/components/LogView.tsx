@@ -1,30 +1,38 @@
 import { useMemo, useState } from 'react';
+import { t } from '../i18n';
+import { feelKey, sessionTypeKey, trainingIntensityKey } from '../i18n/enums';
+import { useLang } from '../i18n/react';
 import { formatShortDate } from '../logic/date';
+import { formatLoad, localeFor } from '../logic/format';
+import { localizeExercise } from '../logic/localize';
 import { sessionLoad } from '../logic/training';
 import { useAppStore } from '../store';
-import type { Exercise, Session, SessionType, SetLog } from '../types';
+import type { Exercise, Lang, Session, SessionType, SetLog } from '../types';
 import { KiteDetailsEditor } from './KiteDetailsEditor';
 import { KiteSeasonAnalysis } from './KiteSeasonAnalysis';
 import { SessionEditor } from './SessionEditor';
 
-const labels: Record<SessionType, string> = {
-  A: 'Tag A', B: 'Tag B', RINGS: 'Ringe', KB: 'KB-Circuit', SPRINT: 'Sprint',
-  MOBILITY: 'Mobility', KITE: 'Kite', PADEL: 'Padel', BOARD_OFF: 'Board-Off', OTHER: 'Andere Aktivität'
-};
-
 function formatSet(set: SetLog): string {
   const values: string[] = [];
   if (set.kg !== undefined) values.push(`${set.kg} kg`);
-  if (set.reps !== undefined) values.push(`${set.reps} Wdh.`);
-  if (set.distanceM !== undefined) values.push(`${set.distanceM} m`);
-  if (set.sec !== undefined) values.push(`${set.sec.toFixed(2)} s`);
-  if (set.perSide) values.push('je Seite');
-  if (set.successful === false) values.push('Fehlversuch');
-  return values.join(' · ') || 'ohne Messwert';
+  if (set.reps !== undefined) values.push(t('log.setReps', { reps: set.reps }));
+  if (set.distanceM !== undefined) values.push(t('log.setMeters', { m: set.distanceM }));
+  if (set.sec !== undefined) values.push(t('log.setSeconds', { sec: set.sec.toFixed(2) }));
+  if (set.perSide) values.push(t('common.perSide'));
+  if (set.successful === false) values.push(t('log.setFailed'));
+  return values.join(' · ') || t('log.setEmpty');
+}
+
+function sessionTitle(session: Session): string {
+  if (session.type === 'OTHER' && session.activityName) return session.activityName;
+  if (session.type === 'MOBILITY' && (session.note === 'Morgenroutine' || session.mobilityDone?.some((id) => id.startsWith('morning-')))) return t('enum.morningRoutine');
+  if (session.type === 'RINGS' && session.sourceApp === 'die-ringe') return t('enum.dieRinge');
+  return t(sessionTypeKey(session.type));
 }
 
 export function LogView() {
   const { sessions, exercises, settings, updateSession, deleteSession } = useAppStore();
+  const lang = useLang();
   const [filter, setFilter] = useState<'ALL' | SessionType>('ALL');
   const types = useMemo(() => [...new Set(sessions.map((session) => session.type))], [sessions]);
   const visible = filter === 'ALL' ? sessions : sessions.filter((session) => session.type === filter);
@@ -32,16 +40,16 @@ export function LogView() {
 
   return (
     <main className="page log-page">
-      <header className="page-header"><div><span className="eyebrow">Alle Einträge</span><h1>Verlauf</h1></div></header>
+      <header className="page-header"><div><span className="eyebrow">{t('log.eyebrow')}</span><h1>{t('log.title')}</h1></div></header>
 
       <section className="log-summary card">
-        <span><strong>{visible.length}</strong><small>Einheiten</small></span>
-        <span><strong>{totalLoad.toFixed(1)}</strong><small>Lastpunkte</small></span>
+        <span><strong>{visible.length}</strong><small>{t('log.summarySessions')}</small></span>
+        <span><strong>{formatLoad(totalLoad, lang)}</strong><small>{t('log.summaryLoad')}</small></span>
       </section>
 
-      <div className="log-filters" aria-label="Trainingstyp filtern">
-        <button className={filter === 'ALL' ? 'selected' : ''} onClick={() => setFilter('ALL')}>Alle</button>
-        {types.map((type) => <button key={type} className={filter === type ? 'selected' : ''} onClick={() => setFilter(type)}>{labels[type]}</button>)}
+      <div className="log-filters" aria-label={t('log.filterAria')}>
+        <button className={filter === 'ALL' ? 'selected' : ''} onClick={() => setFilter('ALL')}>{t('log.filterAll')}</button>
+        {types.map((type) => <button key={type} className={filter === type ? 'selected' : ''} onClick={() => setFilter(type)}>{t(sessionTypeKey(type))}</button>)}
       </div>
 
       {(filter === 'ALL' || filter === 'KITE') && <KiteSeasonAnalysis sessions={sessions} />}
@@ -52,13 +60,13 @@ export function LogView() {
             key={session.id}
             session={session}
             exercises={exercises}
-            exerciseNames={new Map(exercises.map((exercise) => [exercise.id, exercise.name]))}
+            lang={lang}
             focusTags={settings.kiteFocusTags}
             updateSession={updateSession}
             deleteSession={deleteSession}
           />
         ))}
-        {!visible.length && <p className="muted">Für diesen Filter gibt es noch keine Einträge.</p>}
+        {!visible.length && <p className="muted">{t('log.listEmpty')}</p>}
       </div>
     </main>
   );
@@ -67,29 +75,27 @@ export function LogView() {
 function LogEntry({
   session,
   exercises,
-  exerciseNames,
+  lang,
   focusTags,
   updateSession,
   deleteSession
 }: {
   session: Session;
   exercises: Exercise[];
-  exerciseNames: Map<string, string>;
+  lang: Lang;
   focusTags: string[];
   updateSession: (id: string, patch: Partial<Session>) => Promise<void>;
   deleteSession: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
-  const title = session.type === 'OTHER' && session.activityName
-    ? session.activityName
-    : session.type === 'MOBILITY' && (session.note === 'Morgenroutine' || session.mobilityDone?.some((id) => id.startsWith('morning-')))
-    ? 'Morgenroutine'
-    : session.type === 'RINGS' && session.sourceApp === 'die-ringe' ? 'Die Ringe' : labels[session.type];
+  const locale = localeFor(lang);
+  const title = sessionTitle(session);
+  const deleteConfirm = () => t('log.deleteConfirm', { title, date: formatShortDate(session.date, locale) });
   return (
     <details className="log-entry card">
       <summary>
         <span className={`session-icon type-${session.type.toLowerCase()}`}>{title.slice(0, 1)}</span>
-        <span><strong>{title}</strong><small>{formatShortDate(session.date)}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · Stufe ${session.boardOffLevel}` : ''} · Last {sessionLoad(session).toFixed(1)}</small></span>
+        <span><strong>{title}</strong><small>{formatShortDate(session.date, locale)}{session.type === 'BOARD_OFF' && session.boardOffLevel !== undefined ? ` · ${t('common.stageLabel', { level: session.boardOffLevel })}` : ''} · {t('common.loadLabel', { load: formatLoad(sessionLoad(session), lang) })}</small></span>
         <b>⌄</b>
       </summary>
       <div className="log-details">
@@ -106,33 +112,36 @@ function LogEntry({
               setEditing(false);
             }}
             onDelete={async () => {
-              if (!window.confirm(`${title} vom ${formatShortDate(session.date)} wirklich löschen?`)) return;
+              if (!window.confirm(deleteConfirm())) return;
               await deleteSession(session.id);
             }}
           />
         ) : (
           <>
             {(session.durationMin || session.intensity || session.feel) && (
-              <p>{session.durationMin ? `${session.durationMin} min` : ''}{session.intensity ? ` · ${session.intensity}` : ''}{session.feel ? ` · Gefühl: ${session.feel}` : ''}</p>
+              <p>{session.durationMin ? t('common.minutes', { min: session.durationMin }) : ''}{session.intensity ? ` · ${t(trainingIntensityKey(session.intensity))}` : ''}{session.feel ? ` · ${t('log.feelPrefix', { feel: t(feelKey(session.feel)) })}` : ''}</p>
             )}
-            {session.entries.map((entry) => (
-              <div className="log-exercise" key={entry.exerciseId}>
-                <strong>{exerciseNames.get(entry.exerciseId) ?? entry.exerciseId}</strong>
-                <ol>{entry.sets.map((set, index) => <li key={index}>{formatSet(set)}</li>)}</ol>
-              </div>
-            ))}
-            {session.mobilityDone?.length ? <p>{session.mobilityDone.length} Checklistenpunkte erledigt</p> : null}
+            {session.entries.map((entry) => {
+              const exercise = exercises.find((item) => item.id === entry.exerciseId);
+              return (
+                <div className="log-exercise" key={entry.exerciseId}>
+                  <strong>{exercise ? localizeExercise(exercise, lang).name : entry.exerciseId}</strong>
+                  <ol>{entry.sets.map((set, index) => <li key={index}>{formatSet(set)}</li>)}</ol>
+                </div>
+              );
+            })}
+            {session.mobilityDone?.length ? <p>{session.mobilityDone.length === 1 ? t('log.checklistDoneOne') : t('log.checklistDoneOther', { n: session.mobilityDone.length })}</p> : null}
             {session.type === 'KITE' && (
               <KiteDetailsEditor details={session.kite} focusTags={focusTags} onChange={(kite) => updateSession(session.id, { kite })} />
             )}
             {session.note && <blockquote>{session.note}</blockquote>}
-            {session.type !== 'KITE' && !session.entries.length && !session.mobilityDone?.length && <p>Keine weiteren Details erfasst.</p>}
+            {session.type !== 'KITE' && !session.entries.length && !session.mobilityDone?.length && <p>{t('log.noExtraDetails')}</p>}
             <div className="log-entry-actions">
-              <button type="button" className="secondary" onClick={() => setEditing(true)}>Session bearbeiten</button>
+              <button type="button" className="secondary" onClick={() => setEditing(true)}>{t('log.editSession')}</button>
               <button type="button" className="session-delete-button" onClick={async () => {
-                if (!window.confirm(`${title} vom ${formatShortDate(session.date)} wirklich löschen?`)) return;
+                if (!window.confirm(deleteConfirm())) return;
                 await deleteSession(session.id);
-              }}>Session löschen</button>
+              }}>{t('log.deleteSession')}</button>
             </div>
           </>
         )}

@@ -33,7 +33,14 @@ export function startOfWeek(isoDate: string): string {
   return addDays(isoDate, -distance);
 }
 
-export function formatShortDate(isoDate: string): string {
-  return new Intl.DateTimeFormat('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })
+export function formatShortDate(isoDate: string, locale = 'de-DE'): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'short', day: '2-digit', month: '2-digit' })
     .format(new Date(`${isoDate}T12:00:00`));
+}
+
+/** Kurze Wochentagsnamen Montag→Sonntag in der übergebenen Locale (für die Gym-Tage-Auswahl). */
+export function weekdayLabels(locale = 'de-DE'): string[] {
+  const formatter = new Intl.DateTimeFormat(locale, { weekday: 'short' });
+  // 2024-01-01 ist ein Montag.
+  return Array.from({ length: 7 }, (_, index) => formatter.format(new Date(Date.UTC(2024, 0, 1 + index))));
 }
