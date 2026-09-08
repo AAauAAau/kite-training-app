@@ -10,8 +10,8 @@
 | 2 | Wiedereinstieg nach Pause | Umgesetzt → [Spec](features/comeback-after-break.md) |
 | 3 | Autoregulation statt fixer Progression | Umgesetzt → [Spec](features/autoregulation.md) |
 | 4 | Verletzungs-Modus | Umgesetzt → [Spec](features/injury-mode.md) |
-| 5 | Saison-Modus | Idee |
-| 6 | Plan-Generator | Idee |
+| 5 | Saison-Modus | Aufgegangen in Plan-Generator → [Spec](features/plan-generator.md) |
+| 6 | Plan-Generator | In Planung → [Spec](features/plan-generator.md) |
 | 7 | Mehrsprachigkeit (DE/EN/FR) | In Arbeit · Gerüst + DE + EN fertig, FR offen → [Spec](features/i18n-en-fr.md) |
 
 Mögliche Zustände: `Idee`, `In Planung`, `In Arbeit`, `Umgesetzt`.
