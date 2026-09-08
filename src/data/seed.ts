@@ -223,7 +223,7 @@ export const templates: SessionTemplate[] = [
     ]
   },
   {
-    type: 'RINGS', title: 'Ringe-Circuit', subtitle: 'Zuhause · Oberkörper / Core',
+    type: 'RINGS', title: 'Ringe-Circuit', subtitle: 'Oberkörper / Core',
     exercises: [
       { exerciseId: 'ring-pullup', sets: 4, defaultReps: 6 },
       { exerciseId: 'ring-dips', sets: 4, defaultReps: 6 },
@@ -232,7 +232,7 @@ export const templates: SessionTemplate[] = [
     ]
   },
   {
-    type: 'KB', title: 'KB-Circuit', subtitle: 'Flensburg / Reise · Alternative zum Ringe-Tag',
+    type: 'KB', title: 'KB-Circuit', subtitle: 'Unterwegs · Alternative zum Ringe-Tag',
     exercises: [
       { exerciseId: 'kb-swing', sets: 5, defaultReps: 10 },
       { exerciseId: 'kb-clean-press', sets: 4, defaultReps: 5, note: 'Explosiv: niedrige Reps, sauberer Lockout' },
@@ -402,7 +402,7 @@ export const defaultSettings: Settings = {
   id: 'settings',
   bodyweightLog: [],
   loadThreshold7d: 10,
-  hamburgDays: [2, 3, 4],
+  gymDays: [2, 3, 4],
   timerAudioEnabled: true,
   kiteFocusTags: [
     'Board Off', 'Megaloop', 'Kiteloop', 'Handle Pass', 'Late Backroll', 'Front Roll',

@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { defaultSettings, exercises as seedExercises } from './data/seed';
 import { isLoggableDate } from './logic/date';
+import { migrateSettings } from './logic/migrateSettings';
 import type { ActiveTimer, BackupData, Exercise, Session, Settings } from './types';
 
 class KiteDatabase extends Dexie {
@@ -22,6 +23,23 @@ class KiteDatabase extends Dexie {
       settings: 'id',
       activeTimers: 'id'
     });
+    // v3: hamburgDays → gymDays. Kein Index-/Struktur-Wechsel, nur die Settings-Zeile
+    // wird an Ort und Stelle bereinigt. `migrateSettings()` in `store.readAll()` und
+    // `importBackup()` fängt DBs/Backups ab, die dieses Upgrade nie gesehen haben.
+    this.version(3).stores({
+      sessions: 'id, date, type, createdAt',
+      exercises: 'id, category',
+      settings: 'id',
+      activeTimers: 'id'
+    }).upgrade(async (tx) => {
+      const settings = await tx.table('settings').get('settings');
+      if (settings && Array.isArray((settings as Record<string, unknown>).hamburgDays)) {
+        const legacy = settings as Record<string, unknown>;
+        legacy.gymDays ??= legacy.hamburgDays;
+        delete legacy.hamburgDays;
+        await tx.table('settings').put(legacy);
+      }
+    });
   }
 }
 
@@ -35,7 +53,7 @@ export async function seedDatabase(): Promise<void> {
 }
 
 export async function exportBackup(): Promise<BackupData> {
-  const settings = { ...defaultSettings, ...(await db.settings.get('settings')) };
+  const settings = migrateSettings(await db.settings.get('settings'));
   return {
     version: 1,
     exportedAt: new Date().toISOString(),
@@ -59,6 +77,6 @@ export async function importBackup(value: unknown): Promise<void> {
     await Promise.all([db.sessions.clear(), db.exercises.clear(), db.settings.clear()]);
     await db.sessions.bulkAdd(value.sessions);
     await db.exercises.bulkAdd(value.exercises);
-    await db.settings.add(value.settings);
+    await db.settings.add(migrateSettings(value.settings));
   });
 }

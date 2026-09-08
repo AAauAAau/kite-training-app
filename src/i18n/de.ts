@@ -36,6 +36,7 @@ export const messages = {
   'nav.history': 'Verlauf',
   'nav.more': 'Mehr',
   'nav.aria': 'Hauptnavigation',
+  'app.name': 'Kite Strength',
   'splash.preparing': 'Offline wird vorbereitet …',
 
   // --- enums: session type ---
@@ -74,8 +75,8 @@ export const messages = {
   'enum.board.directional': 'Directional',
 
   // --- enums: location ---
-  'enum.location.Gym': 'Gym',
-  'enum.location.Zuhause': 'Zuhause',
+  'enum.location.gym': 'Gym',
+  'enum.location.home': 'Zuhause',
 
   // --- enums: rings ---
   'enum.ringsArea.mobility': 'Mobility',
@@ -115,6 +116,9 @@ export const messages = {
   'comeback.hintSuffix': 'Typisch nach Urlaub oder Krankheit — erste Einheit bewusst leicht, danach normal weiter.',
   'sprint.warning.sameDayDeadlift': 'Am selben Tag ist bereits Tag A mit Kreuzheben geloggt.',
   'sprint.warning.hardKiteYesterday': 'Gestern war ein harter Kitetag. Hamstrings und Landebelastung sind noch frisch.',
+  'sprint.intensity.easy': '~70 %',
+  'sprint.intensity.moderate': '~85 %',
+  'sprint.intensity.max': 'nahe max · 2–3 min Pause',
 
   // --- FeelSheet ---
   'feel.saved': 'Einheit gespeichert',

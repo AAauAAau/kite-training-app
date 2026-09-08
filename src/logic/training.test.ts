@@ -233,16 +233,22 @@ describe('training warnings', () => {
 });
 
 describe('schedule', () => {
-  const scheduleSettings = { ...settings, hamburgDays: [2, 3, 4] };
+  const scheduleSettings = { ...settings, gymDays: [2, 3, 4] };
 
   it('plans exactly one rings-or-KB slot', () => {
     const plan = schedule('2026-08-24', [], scheduleSettings);
     expect(plan.filter((item) => item.type === 'RINGS' || item.type === 'KB')).toHaveLength(1);
   });
 
-  it('keeps one circuit slot even when every weekday is configured for Hamburg', () => {
-    const plan = schedule('2026-08-24', [], { ...scheduleSettings, hamburgDays: [0, 1, 2, 3, 4, 5, 6] });
+  it('keeps one circuit slot even when every weekday is a gym day', () => {
+    const plan = schedule('2026-08-24', [], { ...scheduleSettings, gymDays: [0, 1, 2, 3, 4, 5, 6] });
     expect(plan.filter((item) => item.type === 'RINGS' || item.type === 'KB')).toHaveLength(1);
+  });
+
+  it('puts the strength days at the gym and the circuit and sprint at home', () => {
+    const plan = schedule('2026-08-24', [], scheduleSettings);
+    expect(plan.filter((item) => item.type === 'A' || item.type === 'B').map((item) => item.location)).toEqual(['gym', 'gym']);
+    expect(plan.filter((item) => item.type === 'RINGS' || item.type === 'KB' || item.type === 'SPRINT').every((item) => item.location === 'home')).toBe(true);
   });
 
   it('turns the shared slot into KB when KB was logged that week', () => {

@@ -388,7 +388,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         </button>
         <button className="template-card sprint-card card" onClick={startSprint}>
           <span className="template-letter type-sprint">S</span>
-          <span><strong>{t('workout.cardSprintTitle', { week })}</strong><small>{t('workout.cardSprintSub', { distance: sprintPrescription(week).distance, intensity: sprintPrescription(week).intensity })}</small></span><ChevronIcon />
+          <span><strong>{t('workout.cardSprintTitle', { week })}</strong><small>{t('workout.cardSprintSub', { distance: sprintPrescription(week).distance, intensity: t(sprintPrescription(week).intensity.key) })}</small></span><ChevronIcon />
         </button>
         <button className="template-card boardoff-card card" onClick={() => setBoardOffPicker(true)}>
           <span className="template-letter type-board_off">B</span>
@@ -462,7 +462,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       {draft.type === 'SPRINT' && (
         <>
           <section className="sprint-safety"><AlertIcon /><strong>{t('workout.sprintSafety')}</strong></section>
-          <section className="warmup card"><span className="eyebrow">{t('workout.sprintWarmupEyebrow')}</span><p>{t('workout.sprintWarmupBody')}</p><strong>{t('workout.sprintPrescription', { distance: prescription?.distance ?? '', intensity: prescription?.intensity ?? '' })}</strong></section>
+          <section className="warmup card"><span className="eyebrow">{t('workout.sprintWarmupEyebrow')}</span><p>{t('workout.sprintWarmupBody')}</p><strong>{t('workout.sprintPrescription', { distance: prescription?.distance ?? '', intensity: prescription ? t(prescription.intensity.key) : '' })}</strong></section>
           <SprintStats sessions={sessionHistory} entries={draft.entries} lang={lang} />
         </>
       )}

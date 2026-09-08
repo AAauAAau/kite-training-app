@@ -55,10 +55,10 @@ export function sprintWeek(sessions: Session[]): number {
   return Math.min(6, sessions.filter((session) => session.type === 'SPRINT').length + 1);
 }
 
-export function sprintPrescription(week: number): { distance: number; intensity: string } {
-  if (week <= 2) return { distance: 60, intensity: '~70 %' };
-  if (week <= 4) return { distance: 40, intensity: '~85 %' };
-  return { distance: 30, intensity: 'nahe max · 2–3 min Pause' };
+export function sprintPrescription(week: number): { distance: number; intensity: MessageDescriptor } {
+  if (week <= 2) return { distance: 60, intensity: { key: 'sprint.intensity.easy' } };
+  if (week <= 4) return { distance: 40, intensity: { key: 'sprint.intensity.moderate' } };
+  return { distance: 30, intensity: { key: 'sprint.intensity.max' } };
 }
 
 function roundToIncrement(value: number, increment: number): number {
@@ -204,26 +204,26 @@ export function weeklyStrengthWarning(date: string, sessions: Session[]): Messag
 
 export function schedule(weekStart: string, sessions: Session[], settings: Settings): PlannedSession[] {
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-  const hamburgDates = days.filter((date) => settings.hamburgDays.includes(new Date(`${date}T12:00:00`).getDay()));
-  const strengthDates = [hamburgDates[0], hamburgDates.at(-1)].filter((date, index, all): date is string =>
+  const gymDates = days.filter((date) => settings.gymDays.includes(new Date(`${date}T12:00:00`).getDay()));
+  const strengthDates = [gymDates[0], gymDates.at(-1)].filter((date, index, all): date is string =>
     Boolean(date) && all.indexOf(date) === index
   );
-  const flensburgDates = days.filter((date) => !hamburgDates.includes(date));
-  const homeDates = flensburgDates.length
-    ? flensburgDates
+  const nonGymDates = days.filter((date) => !gymDates.includes(date));
+  const homeDates = nonGymDates.length
+    ? nonGymDates
     : days.filter((date) => !strengthDates.includes(date));
   const planned: Omit<PlannedSession, 'overriddenByKite' | 'completed'>[] = [];
-  if (strengthDates[0]) planned.push({ date: strengthDates[0], type: 'A', location: 'Gym' });
-  if (strengthDates[1]) planned.push({ date: strengthDates[1], type: 'B', location: 'Gym' });
+  if (strengthDates[0]) planned.push({ date: strengthDates[0], type: 'A', location: 'gym' });
+  if (strengthDates[1]) planned.push({ date: strengthDates[1], type: 'B', location: 'gym' });
   const flexDay = homeDates.find((date) => date > (strengthDates.at(-1) ?? weekStart)) ?? homeDates[0] ?? days.at(-1);
   const weekEnd = addDays(weekStart, 6);
   const loggedAlternative = sessions
     .filter((session) => session.date >= weekStart && session.date <= weekEnd && (session.type === 'KB' || session.type === 'RINGS'))
     .sort((a, b) => b.date.localeCompare(a.date))[0];
   const circuitDay = loggedAlternative?.date ?? flexDay;
-  if (circuitDay) planned.push({ date: circuitDay, type: loggedAlternative?.type === 'KB' ? 'KB' : 'RINGS', location: 'Zuhause' });
+  if (circuitDay) planned.push({ date: circuitDay, type: loggedAlternative?.type === 'KB' ? 'KB' : 'RINGS', location: 'home' });
   const sprintDay = homeDates.find((date) => date !== circuitDay);
-  if (sprintDay && sprintWeek(sessions) <= 6) planned.push({ date: sprintDay, type: 'SPRINT', location: 'Zuhause' });
+  if (sprintDay && sprintWeek(sessions) <= 6) planned.push({ date: sprintDay, type: 'SPRINT', location: 'home' });
   return planned
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((item) => ({

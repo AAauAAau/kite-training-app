@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { db, importBackup, seedDatabase } from './db';
 import { defaultSettings } from './data/seed';
+import { migrateSettings } from './logic/migrateSettings';
 import { detectLang, setLang } from './i18n';
 import { addDays, isLoggableDate, localDate } from './logic/date';
 import type { ActiveTimer, Exercise, Feel, Lang, Session, Settings } from './types';
@@ -31,7 +32,7 @@ async function readAll() {
     db.settings.get('settings'),
     db.activeTimers.get('active')
   ]);
-  return { sessions, exercises, settings: { ...defaultSettings, ...settings }, activeTimer: activeTimer ?? null };
+  return { sessions, exercises, settings: migrateSettings(settings), activeTimer: activeTimer ?? null };
 }
 
 function assertLoggableDate(date: string): void {

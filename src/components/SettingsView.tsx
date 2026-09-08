@@ -20,7 +20,7 @@ export function SettingsView() {
   const { settings, addBodyweight, updateSettings, restoreBackup, sessions } = useAppStore();
   const lang = useLang();
   const locale = localeFor(lang);
-  const [weight, setWeight] = useState(settings.bodyweightLog.at(-1)?.kg.toString() ?? '86');
+  const [weight, setWeight] = useState(settings.bodyweightLog.at(-1)?.kg.toString() ?? '');
   const [focusTag, setFocusTag] = useState('');
   const [message, setMessage] = useState('');
   const [injuryRegion, setInjuryRegion] = useState<BodyRegion | null>(null);
@@ -64,10 +64,10 @@ export function SettingsView() {
   }
 
   function toggleGymDay(day: number) {
-    const days = settings.hamburgDays.includes(day)
-      ? settings.hamburgDays.filter((value) => value !== day)
-      : [...settings.hamburgDays, day].sort();
-    if (days.length) void updateSettings({ hamburgDays: days });
+    const days = settings.gymDays.includes(day)
+      ? settings.gymDays.filter((value) => value !== day)
+      : [...settings.gymDays, day].sort();
+    if (days.length) void updateSettings({ gymDays: days });
   }
 
   async function addFocusTag() {
@@ -116,7 +116,7 @@ export function SettingsView() {
 
       <section className="settings-card card">
         <span className="eyebrow">{t('settings.weightEyebrow')}</span><h2>{t('settings.weightTitle')}</h2>
-        <div className="weight-input"><input inputMode="decimal" value={weight} onChange={(event) => setWeight(event.target.value)} /><span>kg</span><button className="primary" onClick={saveWeight}>{t('common.save')}</button></div>
+        <div className="weight-input"><input inputMode="decimal" placeholder="80" value={weight} onChange={(event) => setWeight(event.target.value)} /><span>kg</span><button className="primary" onClick={saveWeight}>{t('common.save')}</button></div>
         <small>{settings.bodyweightLog.length === 1 ? t('settings.weightCountOne') : t('settings.weightCountOther', { n: settings.bodyweightLog.length })}</small>
       </section>
       <section className="settings-card card">
@@ -128,7 +128,7 @@ export function SettingsView() {
         <p>{t('settings.gymDaysBody')}</p>
         <div className="day-picker">
           {GYM_DAYS.map((day, index) => (
-            <button key={day} className={settings.hamburgDays.includes(day) ? 'selected' : ''} onClick={() => toggleGymDay(day)}>{dayLabels[index]}</button>
+            <button key={day} className={settings.gymDays.includes(day) ? 'selected' : ''} onClick={() => toggleGymDay(day)}>{dayLabels[index]}</button>
           ))}
         </div>
       </section>
@@ -212,6 +212,7 @@ export function SettingsView() {
       </section>
       {message && <div className="toast-message" role="status">{message}</div>}
       <footer className="privacy-note">{t('settings.privacy')}</footer>
+      <img className="settings-brand" src={`${import.meta.env.BASE_URL}tl-kiteboarding-logo.png`} alt="TL Kiteboarding · Straight Outta Mecklenburg" />
     </main>
   );
 }

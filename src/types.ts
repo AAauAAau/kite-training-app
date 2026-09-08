@@ -103,7 +103,7 @@ export interface Settings {
   bodyweightLog: BodyweightLog[];
   deloadDismissedUntil?: string;
   loadThreshold7d: number;
-  hamburgDays: number[];
+  gymDays: number[];
   timerAudioEnabled?: boolean;
   kiteFocusTags: string[];
   boardOffLevel?: number;
@@ -150,10 +150,13 @@ export interface BoardOffLevel {
   slots: BoardOffSlot[];
 }
 
+/** Trainingsort einer geplanten Einheit — via i18n übersetzt, nie als Anzeige-Text gespeichert. */
+export type TrainingLocation = 'gym' | 'home';
+
 export interface PlannedSession {
   date: string;
   type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'KB' | 'SPRINT'>;
-  location: 'Gym' | 'Zuhause';
+  location: TrainingLocation;
   overriddenByKite: boolean;
   completed: boolean;
 }

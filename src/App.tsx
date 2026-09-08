@@ -36,7 +36,7 @@ export default function App() {
     setHipSessionId(offersPostSessionHip(session.type) ? session.id : null);
   }
 
-  if (!ready) return <div className="splash"><div className="splash-kite">K</div><strong>Kite Strength</strong><span>{t('splash.preparing')}</span></div>;
+  if (!ready) return <div className="splash"><div className="splash-kite">K</div><strong>{t('app.name')}</strong><span>{t('splash.preparing')}</span></div>;
 
   return (
     <div className="app-shell">
