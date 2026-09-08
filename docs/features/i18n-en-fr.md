@@ -1,6 +1,6 @@
 # Mehrsprachigkeit: Deutsch, Englisch, Französisch
 
-Status: In Planung
+Status: In Arbeit — Gerüst, Deutsch und Englisch umgesetzt; Französisch offen
 
 ## Ziel
 
@@ -39,9 +39,9 @@ einen Test scheitern).
    liegen in `src/i18n/content/en.ts` und `fr.ts`, jeweils **nach denselben IDs
    verschlüsselt**. Aufgelöst wird zur Renderzeit, nicht beim Seeden.
 4. **Persistierte Werte bleiben Codes, nicht Anzeige-Text.** `KiteWind`
-   (`leicht|mittel|stark`), `PlannedSession.location` (`Gym|Zuhause`),
-   `SessionType`, `Feel` usw. bleiben unverändert in IndexedDB und Backups; sie
-   werden nur bei der Anzeige übersetzt. Keine Datenmigration.
+   (`leicht|mittel|stark`), `PlannedSession.location` (`gym|home`, nur berechnet,
+   nie gespeichert), `SessionType`, `Feel` usw. bleiben unverändert in IndexedDB
+   und Backups; sie werden nur bei der Anzeige übersetzt. Keine Datenmigration.
 5. **`src/logic/` gibt Message-Deskriptoren zurück, keine fertigen Sätze.**
    `strengthWarnings`, `deloadDue().reason`, der Comeback-Hinweis und die
    Substitutions-Equipment-Labels liefern künftig `{ key, params }` statt
@@ -301,17 +301,21 @@ Bestehende Tests anpassen:
 
 ## Umsetzungsreihenfolge (Vorschlag)
 
-1. `src/i18n/` Gerüst: `Messages`-Typ aus `de.ts`, `t`/`plural`/`detectLang`,
+1. ✅ `src/i18n/` Gerüst: `Messages`-Typ aus `de.ts`, `t`/`plural`/`detectLang`,
    Tests. `settings.lang` + Store-Verdrahtung + `SettingsView`-Umschalter.
-2. UI-Strings Screen für Screen nach `de.ts` ziehen und `t()` einsetzen
+2. ✅ UI-Strings Screen für Screen nach `de.ts` ziehen und `t()` einsetzen
    (App-Shell → Dashboard → Workout → Log/Week → Sheets). Nur `de` befüllt.
-3. `src/logic/`-Deskriptoren umbauen (training, substitution, date, format) +
-   Tests anpassen.
-4. `content/de.ts` als Re-Export der Seed-Strings; `localize*`-Funktionen + Tests.
-5. `en.ts` + `content/en.ts` befüllen, Vollständigkeits-Tests grün.
-6. `fr.ts` + `content/fr.ts` befüllen.
-7. Manueller Durchlauf in allen drei Sprachen, Textlängen-Feinschliff, Manifest.
+3. ✅ `src/logic/`-Deskriptoren umbauen (training, substitution, date, format) +
+   Tests anpassen. `sprintPrescription().intensity` liefert jetzt einen
+   `MessageDescriptor` statt eines gemischtsprachigen Strings.
+4. ✅ `content/de.ts` als Re-Export der Seed-Strings; `localize*`-Funktionen + Tests.
+5. ✅ `en.ts` + `content/en.ts` befüllt, Vollständigkeits-Tests (Key-Parität,
+   Platzhalter-Parität, Content gegen den Seed) grün. Kite-Fachbegriffe bleiben
+   unübersetzt.
+6. ⬜ `fr.ts` + `content/fr.ts` befüllen (`describe.todo`-Platzhalter in
+   `i18n.test.ts` und `content.test.ts` stehen bereit).
+7. ⬜ Manueller Durchlauf FR, Textlängen-Feinschliff. Manifest ist bereits
+   englisch-neutral.
 
-Schritte 1–4 sind die Struktur (danach ist die App „mehrsprachig-fähig", aber nur
-auf Deutsch befüllt); 5–7 sind die eigentlichen Übersetzungen und können separat
-folgen.
+Schritte 1–5 sind erledigt: die App ist auf Deutsch und Englisch vollständig;
+6–7 sind Französisch und können separat folgen.

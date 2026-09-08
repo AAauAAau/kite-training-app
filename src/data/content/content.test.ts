@@ -27,7 +27,53 @@ describe('content/en and content/fr reference only known ids', () => {
   });
 });
 
-// Aktiviert sich, sobald content/en.ts und content/fr.ts befüllt sind (Spec-Phasen 5–6):
-// jede Übungs-ID hat einen en/fr-Namen (oder steht in einer bewussten Fallback-Allowlist),
-// alle Templates, Mobility-Checklisten und Board-Off-Stufen sind vollständig übersetzt.
-describe.todo('content/en and content/fr are complete against the seed');
+describe('content/en is complete against the seed', () => {
+  const nonEmpty = (value: unknown) => typeof value === 'string' && value.length > 0;
+
+  it('translates the name of every seed exercise', () => {
+    const missing = exercises.filter((exercise) => !nonEmpty(en.exercises?.[exercise.id]?.name));
+    expect(missing.map((exercise) => exercise.id)).toEqual([]);
+  });
+
+  it('translates every template title, subtitle and note', () => {
+    for (const template of templates) {
+      const entry = en.templates?.[template.type];
+      expect(nonEmpty(entry?.title) && nonEmpty(entry?.subtitle)).toBe(true);
+      for (const item of template.exercises) {
+        if (item.note) expect(nonEmpty(entry?.notes?.[item.exerciseId])).toBe(true);
+      }
+    }
+  });
+
+  it('translates every mobility title, label and text field the seed defines', () => {
+    for (const checklist of mobilityChecklists) {
+      const entry = en.mobility?.[checklist.variant];
+      expect(nonEmpty(entry?.title)).toBe(true);
+      for (const item of checklist.items) {
+        const translated = entry?.items?.[item.id];
+        expect(nonEmpty(translated?.label)).toBe(true);
+        for (const field of ['purpose', 'dose', 'cue', 'cueDetail'] as const) {
+          if (item[field] !== undefined) expect(nonEmpty(translated?.[field])).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('translates every board-off label, gate, slot and rig-free alternative', () => {
+    for (const level of boardOffLevels) {
+      const entry = en.boardOff?.[String(level.level)];
+      expect(nonEmpty(entry?.label) && nonEmpty(entry?.gate)).toBe(true);
+      for (const slot of level.slots) {
+        const translated = entry?.slots?.[slot.exerciseId];
+        expect(nonEmpty(translated?.mistake) && nonEmpty(translated?.regression)).toBe(true);
+        if (slot.rigFreeAlternative) {
+          const rigFree = entry?.rigFree?.[slot.exerciseId];
+          expect(nonEmpty(rigFree?.mistake) && nonEmpty(rigFree?.regression)).toBe(true);
+        }
+      }
+    }
+  });
+});
+
+// Aktiviert sich, sobald content/fr.ts befüllt ist (Spec-Phase 6).
+describe.todo('content/fr is complete against the seed');

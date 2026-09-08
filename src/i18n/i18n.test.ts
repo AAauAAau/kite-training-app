@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { messages as de } from './de';
+import { messages as en } from './en';
 import { detectLang, plural, setLang, t } from './index';
 
 afterEach(() => setLang('de'));
@@ -30,10 +31,16 @@ describe('t', () => {
   });
 
   it('falls back to the German string when the active catalog has no entry', () => {
-    setLang('en');
-    expect(t('nav.today')).toBe(de['nav.today']);
+    // fr is still an empty catalog (Spec-Phase 6) → every key falls back to de.
     setLang('fr');
     expect(t('nav.today')).toBe(de['nav.today']);
+    expect(t('settings.title')).toBe(de['settings.title']);
+  });
+
+  it('uses the English catalog once it is populated', () => {
+    setLang('en');
+    expect(t('nav.today')).toBe('Today');
+    expect(t('settings.title')).toBe('Settings');
   });
 });
 
@@ -46,5 +53,20 @@ describe('plural', () => {
   });
 });
 
-// Aktiviert sich, sobald en.ts / fr.ts befüllt sind (Spec-Phasen 5–6).
-describe.todo('en and fr expose exactly the same keys as de');
+describe('catalog completeness', () => {
+  const deKeys = Object.keys(de).sort();
+
+  it('en exposes exactly the same keys as de', () => {
+    expect(Object.keys(en).sort()).toEqual(deKeys);
+  });
+
+  it('en keeps every interpolation placeholder from de', () => {
+    const placeholders = (value: string) => (value.match(/\{(\w+)\}/g) ?? []).sort();
+    for (const key of deKeys) {
+      expect(placeholders((en as Record<string, string>)[key])).toEqual(placeholders((de as Record<string, string>)[key]));
+    }
+  });
+});
+
+// Aktiviert sich, sobald fr.ts befüllt ist (Spec-Phase 6).
+describe.todo('fr exposes exactly the same keys as de');

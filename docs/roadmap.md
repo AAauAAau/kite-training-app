@@ -12,7 +12,7 @@
 | 4 | Verletzungs-Modus | Umgesetzt → [Spec](features/injury-mode.md) |
 | 5 | Saison-Modus | Idee |
 | 6 | Plan-Generator | Idee |
-| 7 | Mehrsprachigkeit (DE/EN/FR) | In Planung → [Spec](features/i18n-en-fr.md) |
+| 7 | Mehrsprachigkeit (DE/EN/FR) | In Arbeit · Gerüst + DE + EN fertig, FR offen → [Spec](features/i18n-en-fr.md) |
 
 Mögliche Zustände: `Idee`, `In Planung`, `In Arbeit`, `Umgesetzt`.
 
