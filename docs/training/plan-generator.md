@@ -1,6 +1,9 @@
 # Plan-Generator — fachliche Grundlage
 
-> Status: Trainingsentwurf und fachliche Referenz, noch nicht in der App implementiert.
+> Status: Trainingsentwurf und fachliche Referenz. **Umgesetzt** (uncommitted auf
+> `i18n-de-en-fr`, Stand 2026-09-09): Logik ([`src/logic/planGenerator.ts`](../../src/logic/planGenerator.ts)
+> + Seed-Pool + Tests), Onboarding ([`src/components/Onboarding.tsx`](../../src/components/Onboarding.tsx)),
+> Settings-Karte, Dashboard-Hinweis, `WorkoutView`-Verdrahtung, `plan.*`-i18n (DE/EN).
 
 Fachliche Unterlage für `src/logic/planGenerator.ts`. Legt fest, welche
 Bewegungsmuster eine einzelne Krafteinheit je Disziplin und je Tagezahl enthält,
@@ -243,19 +246,30 @@ Disziplin-Betonung (`pull-h`/`carry` als emphasis → Zusatz-Slot) + das
 ### 4.1 Basis-Dosierung (`REP_PROFILE`)
 
 Wird auf **jeden** Slot angewandt, nachdem das Skelett steht; setzt `reps` bzw.
-`sec` und die Pause. `slotOverrides` schlagen das. `carry`-Slots ignorieren
-`REP_PROFILE` (immer distanz-/zeitbasiert, siehe Skelett).
+`sec`. `slotOverrides` schlagen das. `carry`-Slots ignorieren `REP_PROFILE`
+(immer distanzbasiert, `reps` = Meter aus dem Skelett).
 
-| repProfile | primary | accessory | Pause primary / accessory | Default-Tempo-Zusatz |
-|---|---|---|---|---|
-| `strength` | 5 Wdh. | 8 Wdh. | 165 s / 120 s | — |
-| `power` | 3 Wdh. | 5 Wdh. | 150 s / 120 s | „explosiv hoch, 2 s exzentrisch" auf primär `squat`/`hinge`/`single-leg` |
-| `endurance` | 12 Wdh. | 15 Wdh. | 75 s / 60 s | — |
-| `isometric` | 40 s | 30 s | 90 s / 75 s | — |
+| repProfile | primary | accessory | Default-Tempo-Zusatz |
+|---|---|---|---|
+| `strength` | 5 Wdh. | 8 Wdh. | — |
+| `power` | 3 Wdh. | 5 Wdh. | „explosiv hoch, 2 s exzentrisch" auf primär `squat`/`hinge`/`single-leg` |
+| `endurance` | 12 Wdh. | 15 Wdh. | — |
+| `isometric` | 6 Wdh. | 10 Wdh. | — |
 
-Sätze kommen aus dem Skelett (primär 4, Circuit-Hinge 5, alle Accessory 3).
-Circuit-Slots 1–2 sind fix **4–5 × 3–5, 90–120 s Pause**, unabhängig vom
-`repProfile` (Abschnitt 3.3).
+**`isometric` ist bewusst wdh.-basiert, nicht sekundenbasiert** (Abweichung vom
+ersten Entwurf). Grund: ein `sec`-Wert auf einem Slot, der auf eine
+wdh.-metrische Übung (z. B. Bulgarian Split Squat) auflöst, ergibt Unsinn. Die
+echten Zeit-Holds entstehen bei Foil über `slotOverrides` (`sec: 40` auf `squat`
+und `core-anti-ext`) **plus** `exercisePrefer`, das den Slot auf eine
+`metric: 'time'`-Übung zieht (`wall-sit`, `hollow-body-hold-strength`). Alle
+anderen Foil-Slots laufen mit moderaten Wiederholungen.
+
+Sätze kommen aus dem Skelett (primär 4, `single-leg`-Primär auf Tag D 4,
+Circuit-Hinge 5, alle Accessory 3). Die beiden explosiven Circuit-Slots sind fix
+**Skelett-Sätze × 4 Wdh.**, unabhängig vom `repProfile` und von den
+`slotOverrides` (Abschnitt 3.3). Pause: nicht im Datenmodell — `TemplateExercise`
+hat kein Pausenfeld. Richtwerte (Doku, nicht Code): Kraft/Power 150–180 s,
+Ausdauer 60–75 s, Holds 90 s, Circuit 90–120 s.
 
 ### 4.2 Profile je Disziplin
 
@@ -326,14 +340,17 @@ Slot-Overrides:
 | **eccentricPatterns** | keiner |
 | **Zusatz-Slot** | Tag A: `squat` A (iso) · Tag B: `single-leg` A (iso) · Tag D: `squat` A (iso) |
 
-Slot-Overrides:
+Slot-Overrides (`exercisePrefer`: `squat → wall-sit`, `core-anti-ext → hollow-body-hold-strength`):
 
-| pattern · role | sets | reps/sec | Tempo | Pause |
-|---|---|---|---|---|
-| `squat` · primary | 4 | 40 s (Wall Sit / iso Haltekniebeuge) | statisch, Rumpf fest | 90 s |
-| `single-leg` · primary/accessory | 3 | 30 s je Seite (iso Split-Squat-Hold) | statisch | 90 s / 75 s |
-| `core-anti-ext` · accessory | 4 | 40 s | LWS flach, Rippen unten | 75 s |
-| `hinge` · primary (Tag A **und** Circuit) | 4 | 5 | **explosiv** — der Anfahr-Pump, überschreibt `isometric` | 150 s |
+| pattern · role | sets | reps/sec | Tempo |
+|---|---|---|---|
+| `squat` · (beide) | Skelett | 40 s (`wall-sit`) | statisch, Rumpf fest |
+| `core-anti-ext` · (beide) | Skelett | 40 s (`hollow-body-hold-strength`) | LWS flach, Rippen unten |
+| `single-leg` · (beide) | Skelett | 10 Wdh. je Seite | 2 s Pause unten, langsam |
+| `hinge` · primary (Tag A) | 4 | 5 Wdh. | **explosiv** — der Anfahr-Pump, überschreibt `isometric` |
+
+Der Circuit-`hinge` (Tag 3/4) bleibt über den Circuit-Fix-Klammer explosiv,
+unabhängig vom `hinge`-Override.
 
 #### Wing
 
@@ -346,12 +363,14 @@ Slot-Overrides:
 
 Slot-Overrides:
 
-| pattern · role | sets | reps/sec | Tempo | Pause |
-|---|---|---|---|---|
-| `pull-h` · primary/accessory | 3 | 15 | oben 1 s halten, Schulterblätter zusammen | 75 s / 60 s |
-| `carry` · accessory | 3 | 50 m je Seite (Waiter/Overhead wo möglich) | aufrecht, Rippen unten | 60 s |
-| `core-anti-rot` · accessory | 3 | 30 s je Seite (Pallof-Hold) | ruhig gegen den Zug | 45 s |
-| `push-h` · primary | 3 | 12 | zügig | 90 s |
+| pattern · role | sets | reps | Tempo |
+|---|---|---|---|
+| `pull-h` · primary | Skelett | 15 | oben 1 s halten, Schulterblätter zusammen |
+| `carry` · (beide) | Skelett | 50 m je Seite | aufrecht, Rippen unten |
+| `core-anti-rot` · accessory | Skelett | 12 | oben 1 s halten, ruhig gegen den Zug |
+
+`core-anti-rot` läuft auf `pallof-press` (wdh.-metrisch) → als Wiederholungen
+mit Haltevorgabe, nicht als reiner Zeit-Hold.
 
 ---
 
@@ -381,14 +400,19 @@ gekitet wird, und Zeit.
 genau das hält die Kraft. Reps senken würde `maintain` zu einem De-facto-Detraining
 machen. `[B]`
 
-`maintain`-Transform vollständig:
+`maintain`-Transform, wie in `applyMaintain` umgesetzt:
 
 ```
 für jeden Tag:
-  jeder primary-Slot:   sets = max(2, sets - 1);  restSec += 30
-  jeder Slot in eccentricPatterns:  tempoNote = undefined
+  jeder primary-Slot:   sets = max(2, sets - 1)
+  wenn repProfile !== 'power':  Slot in eccentricPatterns → tempoNote = undefined
   letzten accessory-Slot des Tages entfernen
 ```
+
+Die „+30 s Pause" aus dem Entwurf entfällt in der Umsetzung — `TemplateExercise`
+kennt keine Pause. Bleibt Doku-Richtwert. Der `power`-Vorbehalt: Freestyle behält
+seinen explosiv-exzentrischen Pop-Cue auch in `maintain` (Skill-spezifisch), nur
+die grindende Big-Air-Exzentrik fällt weg.
 
 ---
 
@@ -422,7 +446,7 @@ Fachliche Prüfung der in der Feature-Spec vorgeschlagenen Ergänzungen.
 | `wall-sit` | `squat` (iso) | **gut** — deckt zusätzlich den Foil-`squat`-iso-Slot ab. `metric: 'time'`. |
 | `band-good-morning` | `hinge` | OK, aber **`band-pull-through` ist die bessere Wahl**: lädt den Hinge von der Hüfte, nicht die Wirbelsäule als Hebel. Empfehlung: ersetzen oder ergänzen. |
 | `bodyweight-single-leg-rdl` | `hinge` | **gut** — einbeinig macht Körpergewicht zum ausreichenden Hinge-Reiz auf `none`. |
-| `backpack-carry` | `carry` | **gut**, realistisch, `metric: 'distance'`. |
+| `backpack-carry` | `carry` | **gut**, realistisch. Umgesetzt als `metric: 'reps'` (Meter), nicht `'distance'` — Konvention der übrigen Carries, geringeres UI-Risiko. |
 | `ab-wheel` | `core-anti-ext` | **gut** — die Leitübung für Anti-Extension, von Knien skalierbar. |
 | `hollow-body-hold-strength` | `core-anti-ext` (iso) | **gut** — eigene ID nötig, da `hollow-body-hold` schon als `category: 'boardoff'` existiert. |
 | Ring: `ring-row` (`pull-h`), `ring-pushup` (`push-h`), `ring-split-squat` (`single-leg`), `ring-hamstring-curl` (`hamstring-curl`) | — | **sinnvoll.** Hinweis: `ring-split-squat` ist wegen der Balance-Anforderung **keine** gelenkschonende `single-leg`-Variante — nicht in `GENTLE_FIRST`. |
@@ -444,217 +468,59 @@ Fachliche Prüfung der in der Feature-Spec vorgeschlagenen Ergänzungen.
 
 ## 8. Datenblock
 
+Der Datenblock **ist umgesetzt** in [`src/logic/planGenerator.ts`](../../src/logic/planGenerator.ts)
+(Tests: `src/logic/planGenerator.test.ts`). Struktur:
+
 ```ts
-// Passt zu src/logic/planGenerator.ts. Keine Kilogramm, keine Wochenlogik.
-// Schema-Ergänzungen ggü. docs/features/plan-generator.md:
-//   1. PatternSlot bekommt  tempoNote?: string
-//   2. DaySkeleton['type'] und SessionType bekommen  'D'
-//   3. Übungspool:  band-pulldown (pull-v/band);  ring-fallout → core-anti-ext
-
-import type { KiteDiscipline, MovementPattern } from '../types';
-
-export type SlotRole = 'primary' | 'accessory';
-export type RepProfile = 'strength' | 'power' | 'endurance' | 'isometric';
-
-export interface PatternSlot {
-  pattern: MovementPattern;
-  role: SlotRole;
-  sets: number;
-  reps?: number;      // Wdh. ODER Meter (carry) ODER Sekunden-Fallback, je Exercise.metric
-  sec?: number;       // Haltezeit für iso/time-Slots
-  tempoNote?: string; // kurz, ein Satz
-}
-
-export interface DaySkeleton {
-  type: 'A' | 'B' | 'KB' | 'D';
-  titleKey: string;   // t('plan.title.<type>')
-  slots: PatternSlot[];
-}
-
-// --- Skelette je Tagezahl -------------------------------------------------
-// reps/sec in den Skeletten sind der strength-Baseline-Wert; REP_PROFILE
-// überschreibt sie je Disziplin. carry-Slots (reps = Meter) bleiben unberührt.
-
-const DAY_A: DaySkeleton = {
-  type: 'A', titleKey: 'plan.title.A',
-  slots: [
-    { pattern: 'hinge',          role: 'primary',   sets: 4, reps: 5 },
-    { pattern: 'single-leg',     role: 'accessory', sets: 3, reps: 8 },
-    { pattern: 'push-h',         role: 'primary',   sets: 4, reps: 5 },
-    { pattern: 'hamstring-curl', role: 'accessory', sets: 3, reps: 6, tempoNote: '3–4 s exzentrisch senken' },
-    { pattern: 'carry',          role: 'accessory', sets: 3, reps: 40 }, // 40 m je Seite
-  ],
+// Skelett je Tagezahl. PatternSlot ist modul-lokal (kein geteilter Typ).
+type PatternSlot = {
+  pattern: MovementPattern; role: 'primary' | 'accessory';
+  sets: number; reps?: number; sec?: number; tempoNote?: string;
+  prefer?: string[];   // Übungs-IDs, die für diesen Slot zuerst versucht werden
 };
+export const SKELETONS: Record<1 | 2 | 3 | 4, DaySkeleton[]>;
 
-const DAY_B: DaySkeleton = {
-  type: 'B', titleKey: 'plan.title.B',
-  slots: [
-    { pattern: 'pull-v',        role: 'primary',   sets: 4, reps: 5 },
-    { pattern: 'squat',         role: 'primary',   sets: 4, reps: 5 },
-    { pattern: 'pull-h',        role: 'accessory', sets: 3, reps: 8 },
-    { pattern: 'hinge',         role: 'accessory', sets: 3, reps: 8 },   // einseitig
-    { pattern: 'core-anti-rot', role: 'accessory', sets: 3, reps: 10 },
-    { pattern: 'core-anti-ext', role: 'accessory', sets: 3, reps: 10 }, // Korrektur 2 (war core-anti-lat)
-  ],
-};
+// Basis-Wdh. je repProfile — carry ausgenommen, holds via slotOverrides+exercisePrefer
+const REP_PROFILE: Record<'strength'|'power'|'endurance'|'isometric', {
+  primary: { reps?: number; sec?: number }; accessory: { reps?: number; sec?: number };
+  explosiveTempo?: string;
+}>;
 
-const DAY_KB: DaySkeleton = {
-  type: 'KB', titleKey: 'plan.title.KB',
-  slots: [
-    { pattern: 'hinge',         role: 'primary',   sets: 5, reps: 4, tempoNote: 'explosiv aus der Hüfte, jede Wdh. neu' },
-    { pattern: 'push-v',        role: 'accessory', sets: 4, reps: 5, tempoNote: 'explosiv, sauberer Lockout' },
-    { pattern: 'core-anti-lat', role: 'accessory', sets: 3, reps: 10 },
-  ],
-};
+export const DISCIPLINE_PROFILES: Record<KiteDiscipline, {
+  emphasis: MovementPattern[];
+  repProfile: 'strength' | 'power' | 'endurance' | 'isometric';
+  eccentricPatterns: MovementPattern[];
+  eccentricTempo: string;
+  slotOverrides: Array<{ pattern; role?; sets?; reps?; sec?; tempoNote? }>;
+  exercisePrefer?: Partial<Record<MovementPattern, string[]>>;
+}>;
 
-const DAY_D: DaySkeleton = {   // Korrektur 4: echter zweiter Bein-/Rumpftag
-  type: 'D', titleKey: 'plan.title.D',
-  slots: [
-    { pattern: 'single-leg',    role: 'primary',   sets: 4, reps: 6 },
-    { pattern: 'pull-h',        role: 'accessory', sets: 3, reps: 8 },
-    { pattern: 'carry',         role: 'accessory', sets: 3, reps: 40 },
-    { pattern: 'core-anti-ext', role: 'accessory', sets: 3, reps: 12 },
-  ],
-};
+export const GENTLE_FIRST: Partial<Record<MovementPattern, string[]>>;
 
-const DAY_1: DaySkeleton = {   // Korrektur 1: pull-h statt pull-v, push-h → accessory
-  type: 'A', titleKey: 'plan.title.full',
-  slots: [
-    { pattern: 'hinge',         role: 'primary',   sets: 4, reps: 5 },
-    { pattern: 'squat',         role: 'primary',   sets: 4, reps: 5 },
-    { pattern: 'pull-h',        role: 'primary',   sets: 4, reps: 6 },
-    { pattern: 'push-h',        role: 'accessory', sets: 3, reps: 8 },
-    { pattern: 'single-leg',    role: 'accessory', sets: 3, reps: 8 },
-    { pattern: 'core-anti-rot', role: 'accessory', sets: 3, reps: 10 },
-  ],
-};
-
-export const SKELETONS: Record<1 | 2 | 3 | 4, DaySkeleton[]> = {
-  1: [DAY_1],
-  2: [DAY_A, DAY_B],
-  3: [DAY_A, DAY_B, DAY_KB],
-  4: [DAY_A, DAY_B, DAY_KB, DAY_D],
-};
-
-// --- Wiederholungs-/Pausen-Profil --------------------------------------------
-// Wird nach dem Skelett auf jeden Slot angewandt (außer pattern === 'carry').
-// slotOverrides der Disziplin schlagen das.
-
-export const REP_PROFILE: Record<RepProfile, {
-  primary:   { reps?: number; sec?: number; restSec: number };
-  accessory: { reps?: number; sec?: number; restSec: number };
-  primaryTempo?: string;                 // auf primär squat/hinge/single-leg
-}> = {
-  strength:  { primary: { reps: 5,  restSec: 165 }, accessory: { reps: 8,  restSec: 120 } },
-  power:     { primary: { reps: 3,  restSec: 150 }, accessory: { reps: 5,  restSec: 120 },
-               primaryTempo: 'explosiv hoch, 2 s exzentrisch' },
-  endurance: { primary: { reps: 12, restSec: 75  }, accessory: { reps: 15, restSec: 60  } },
-  isometric: { primary: { sec: 40,  restSec: 90  }, accessory: { sec: 30,  restSec: 75  } },
-};
-
-// Circuit-Slots 1–2 (DAY_KB, role primary/accessory mit tempoNote) sind fix und
-// ignorieren REP_PROFILE:  sets wie Skelett, reps 3–5, restSec 110.
-export const CIRCUIT_FIXED = { reps: 4, restSec: 110 };
-
-// --- Disziplin-Profile -------------------------------------------------------
-
-export interface DisciplineProfile {
-  emphasis: MovementPattern[];            // 1–3, erstes = höchste Priorität
-  repProfile: RepProfile;
-  eccentricPatterns: MovementPattern[];   // leer = kein Tempo-Fokus
-  eccentricTempo: string;                 // Notiz für diese Slots
-  slotOverrides?: Array<{
-    pattern: MovementPattern;
-    role?: SlotRole;
-    sets?: number; reps?: number; sec?: number; tempoNote?: string; restSec?: number;
-  }>;
-}
-
-export const DISCIPLINE_PROFILES: Record<KiteDiscipline, DisciplineProfile> = {
-  'big-air': {
-    emphasis: ['hinge', 'single-leg', 'hamstring-curl'],
-    repProfile: 'strength',
-    eccentricPatterns: ['squat', 'single-leg', 'hamstring-curl'],
-    eccentricTempo: '3–4 s exzentrisch senken, unten nicht ablegen',
-    slotOverrides: [
-      { pattern: 'hamstring-curl', role: 'accessory', sets: 4, reps: 6, tempoNote: '3–4 s exzentrisch', restSec: 120 },
-      { pattern: 'squat',      role: 'primary', sets: 4, reps: 5, tempoNote: '3–4 s exzentrisch, explosiv hoch', restSec: 180 },
-      { pattern: 'single-leg', role: 'primary', sets: 4, reps: 6, tempoNote: '3–4 s exzentrisch', restSec: 150 },
-    ],
-  },
-  freestyle: {
-    emphasis: ['single-leg', 'squat', 'core-anti-rot'],
-    repProfile: 'power',
-    eccentricPatterns: ['squat', 'single-leg'],
-    eccentricTempo: '3 s exzentrisch, dann explosiv hoch',
-    slotOverrides: [
-      { pattern: 'squat',        role: 'primary',  sets: 4, reps: 3, tempoNote: '3 s exzentrisch, explosiv hoch', restSec: 165 },
-      { pattern: 'single-leg',   role: 'primary',  sets: 4, reps: 4, tempoNote: '3 s exzentrisch, explosiv hoch', restSec: 150 },
-      { pattern: 'core-anti-rot', role: 'accessory', sets: 3, reps: 8, tempoNote: 'zügig-reaktiv, kein Zeitlupentempo', restSec: 75 },
-    ],
-  },
-  wave: {
-    emphasis: ['pull-h', 'single-leg', 'core-anti-lat'],
-    repProfile: 'endurance',
-    eccentricPatterns: ['single-leg'],
-    eccentricTempo: '2 s exzentrisch kontrolliert',
-    slotOverrides: [
-      { pattern: 'single-leg',    role: 'primary',   sets: 3, reps: 12, tempoNote: '2 s exzentrisch', restSec: 75 },
-      { pattern: 'carry',         role: 'accessory', sets: 3, reps: 60, restSec: 60 },
-      { pattern: 'core-anti-lat', role: 'accessory', sets: 3, sec: 40, restSec: 45 },
-    ],
-  },
-  foil: {
-    emphasis: ['squat', 'single-leg', 'core-anti-ext'],
-    repProfile: 'isometric',
-    eccentricPatterns: [],
-    eccentricTempo: '',
-    slotOverrides: [
-      { pattern: 'squat',      role: 'primary',   sets: 4, sec: 40, tempoNote: 'statisch, Rumpf fest (Wall Sit)', restSec: 90 },
-      { pattern: 'single-leg', role: 'primary',   sets: 3, sec: 30, tempoNote: 'statischer Split-Squat-Hold', restSec: 90 },
-      { pattern: 'core-anti-ext', role: 'accessory', sets: 4, sec: 40, tempoNote: 'LWS flach, Rippen unten', restSec: 75 },
-      { pattern: 'hinge',      role: 'primary',   sets: 4, reps: 5, tempoNote: 'explosiv — Anfahr-Pump', restSec: 150 },
-    ],
-  },
-  wing: {
-    emphasis: ['pull-h', 'carry', 'core-anti-rot'],
-    repProfile: 'endurance',
-    eccentricPatterns: [],
-    eccentricTempo: '',
-    slotOverrides: [
-      { pattern: 'pull-h',        role: 'primary',   sets: 3, reps: 15, tempoNote: 'oben 1 s halten, Schulterblätter zusammen', restSec: 75 },
-      { pattern: 'carry',         role: 'accessory', sets: 3, reps: 50, tempoNote: 'aufrecht, Rippen unten', restSec: 60 },
-      { pattern: 'core-anti-rot', role: 'accessory', sets: 3, sec: 30, tempoNote: 'ruhig gegen den Zug (Pallof-Hold)', restSec: 45 },
-    ],
-  },
-};
-
-// --- Zusatz-Slot-Regel ------------------------------------------------------
-// Für jeden Primärtag (A, B, D): hänge einen accessory-Slot des ersten
-// emphasis-Musters an, das an diesem Tag noch nicht vorkommt. Kommen alle
-// emphasis-Muster vor, entfällt der Zusatz-Slot. Dosierung aus REP_PROFILE
-// + slotOverrides. Circuit (KB) bekommt keinen Zusatz-Slot.
-
-// --- gelenkschonende Reihenfolge (nur nach-vorn-Liste) ---------------------
-
-export const GENTLE_FIRST: Partial<Record<MovementPattern, string[]>> = {
-  squat:           ['goblet-squat', 'leg-press'],           // Korrektur 6: kein back-squat
-  hinge:           ['trap-bar-deadlift', 'kb-deadlift', 'hip-thrust'],
-  'single-leg':    ['dumbbell-step-up', 'reverse-lunge'],
-  'push-h':        ['db-bench-press', 'machine-chest-press'],
-  'push-v':        ['db-shoulder-press', 'kb-clean-press'],
-  'pull-v':        ['assisted-pullup', 'lat-pulldown'],
-  'hamstring-curl': ['machine-leg-curl', 'slider-leg-curl'],
-};
-
-// --- Saison ---------------------------------------------------------------
-// maintain-Transform (Abschnitt 5), rein deterministisch, keine neue Stellschraube:
-//   primary-Slot:  sets = max(2, sets - 1);  restSec += 30
-//   Slot in eccentricPatterns:  tempoNote = undefined
-//   letzten accessory-Slot je Tag entfernen
-export const MAINTAIN_PRIMARY_REST_BONUS = 30;
-export const MAINTAIN_MIN_SETS = 2;
+// Öffentliche Funktionen
+export function seasonMode(sessions, date?): 'build' | 'maintain';
+export function gentleBias(profile): boolean;
+export function generateTemplates(profile, season, exercises): SessionTemplate[];
+export function activeTemplates(settings, sessions, exercises, date?): SessionTemplate[];
 ```
+
+**Konkrete Zahlen** — Skelett-Sätze × `REP_PROFILE`-Wdh., dann `slotOverrides`:
+
+| Skelett | Slots (Muster · Rolle · Sätze) |
+|---|---|
+| **1 Tag** (`A`) | hinge P4 · squat P4 · pull-h P4 · push-h A3 · single-leg A3 · core-anti-rot A3 |
+| **2 Tage A** | hinge P4 · single-leg A3 · push-h P4 · hamstring-curl A3 · carry A3 (40 m) |
+| **2 Tage B** | pull-v P4 · squat P4 · pull-h A3 · hinge A3 (einseitig, `prefer` single-leg-rdl) · core-anti-rot A3 · core-anti-ext A3 |
+| **+ Circuit** (`KB`) | hinge P5 explosiv (fix 5×4) · push-v A4 explosiv (fix 4×4) · core-anti-lat A3 |
+| **+ Tag D** | single-leg P4 · pull-h A3 · carry A3 (40 m) · core-anti-ext A3 |
+
+`REP_PROFILE`: strength P5/A8 · power P3/A5 (+explosiv-Tempo) · endurance P12/A15 ·
+isometric P6/A10. Disziplin-`emphasis` hängt an jeden Primärtag (nicht KB) einen
+Accessory-Slot des ersten Musters an, das am Tag fehlt. `slotOverrides` und
+`exercisePrefer` je Disziplin: Abschnitt 4.2.
+
+`maintain`: `applyMaintain` — Primär −1 Satz (min. 2), Exzentrik-Tempo weg (außer
+`power`), letzter Accessory-Slot je Tag raus.
 
 ---
 
@@ -664,12 +530,19 @@ export const MAINTAIN_MIN_SETS = 2;
   (2) 2-Tag Tag B `core-anti-lat`→`core-anti-ext`, (3) Circuit-Pacing Power statt
   Metcon, (4) 4-Tag Tag D wird echter Beintag mit Primär-Slot, (5) `push-v` aus
   Wave/Wing-emphasis streichen, (6) `back-squat` aus `GENTLE_FIRST[squat]`.
-  Plus `maintain`-Gegenvorschlag (Exzentrik streichen, +30 s Pause) und
-  Pool-Korrekturen (`band-pulldown`, `ring-fallout`-Tag).
+  Plus `maintain`-Gegenvorschlag und Pool-Korrekturen (`band-pulldown`,
+  `ring-fallout`-Tag, `bodyweight-split-squat`).
 - **Alle `[P]`-Zeilen mit URL?** Ja, Abschnitt 1.1 und 2.
 - **Datenblock deckt 5 Disziplinen × 4 Tagezahlen ohne offene Zahl?** Ja — jede
   Zahl kommt aus `SKELETONS` × `REP_PROFILE` × `slotOverrides`; jeder Nutzer hat
-  eine Disziplin (Onboarding-Pflichtfeld), also nie ein Slot ohne Profil.
-- **Ohne Schema-Change?** Nein — drei minimale Ergänzungen, in Abschnitt 8 oben
-  markiert (`tempoNote?`, `type: 'D'`, zwei Pool-Einträge). Alle additiv,
-  rückwärtskompatibel.
+  eine Disziplin (Onboarding-Pflichtfeld). Test `planGenerator.test.ts`:
+  „fills every skeleton slot on every discipline × tier".
+- **Schema-Änderungen?** Nur eine geteilte: `SessionType` und
+  `SessionTemplate['type']` bekommen `'D'`. `PatternSlot`/`DaySkeleton` sind
+  modul-lokal, Tempo läuft über `TemplateExercise.note` (kein neues Feld). Plus
+  additive Seed-Einträge (`band-pulldown`, `bodyweight-split-squat`,
+  Ring-Varianten, Bodyweight-/Band-Lücken).
+- **Abweichungen Entwurf → Umsetzung:** `isometric` wdh.- statt sekundenbasiert
+  (Holds via `exercisePrefer`); Wing/Foil-`core`-Overrides als Wdh. statt `sec`
+  wo die Übung wdh.-metrisch ist; `restSec`/Pause nicht im Datenmodell (nur
+  Doku-Richtwert); `prefer`/`exercisePrefer` als Auswahl-Hebel ergänzt.

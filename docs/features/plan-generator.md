@@ -1,6 +1,6 @@
 # Plan-Generator
 
-Status: In Planung
+Status: In Umsetzung (Logik + UI gebaut, uncommitted auf `i18n-de-en-fr`, Stand 2026-09-09)
 
 ## Ziel
 
