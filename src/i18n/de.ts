@@ -11,6 +11,8 @@ export const messages = {
   'common.add': 'Hinzufügen',
   'common.yes': 'Ja',
   'common.no': 'Nein',
+  'common.on': 'An',
+  'common.off': 'Aus',
   'common.end': 'Beenden',
   'common.plusTwoWeeks': '+2 Wochen',
   'common.skip': 'Überspringen',
@@ -42,6 +44,7 @@ export const messages = {
   // --- enums: session type ---
   'enum.sessionType.A': 'Tag A',
   'enum.sessionType.B': 'Tag B',
+  'enum.sessionType.D': 'Tag D',
   'enum.sessionType.RINGS': 'Ringe',
   'enum.sessionType.KB': 'KB-Circuit',
   'enum.sessionType.SPRINT': 'Sprint',
@@ -531,7 +534,70 @@ export const messages = {
   'timer.audioOffAria': 'Signalton ausschalten',
   'timer.audioOnAria': 'Signalton einschalten',
   'timer.audioOn': 'Ton an',
-  'timer.audioOff': 'Ton aus'
+  'timer.audioOff': 'Ton aus',
+
+  // --- Plan-Generator: Onboarding ---
+  'plan.onboarding.eyebrow': 'Trainingsplan',
+  'plan.onboarding.title': 'Vier Fragen, ein Plan',
+  'plan.onboarding.stepOf': 'Schritt {n} von 4',
+  'plan.onboarding.equipmentTitle': 'Was hast du zur Verfügung?',
+  'plan.onboarding.daysTitle': 'Wie oft pro Woche Krafttraining?',
+  'plan.onboarding.daysUnit': '{n}×',
+  'plan.onboarding.disciplineTitle': 'Welche Disziplin fährst du hauptsächlich?',
+  'plan.onboarding.gentleTitle': 'Gelenkschonende Übungen bevorzugen?',
+  'plan.onboarding.gentleBody': 'Trap-Bar, Goblet, Maschinen und assistierte Klimmzüge kommen zuerst.',
+  'plan.onboarding.gentleOn': 'Ja, schonend',
+  'plan.onboarding.gentleOff': 'Nein, Standard',
+  'plan.onboarding.next': 'Weiter',
+  'plan.onboarding.create': 'Plan erstellen',
+  'plan.onboarding.skipHint': 'Ohne Plan bleibt der Standardplan aktiv (Tag A / Tag B / Circuit).',
+
+  // --- Plan-Generator: Auswahl-Labels ---
+  'plan.equipment.gym': 'Gym',
+  'plan.equipment.kettlebell': 'Nur Kettlebell',
+  'plan.equipment.rings': 'Nur Ringe',
+  'plan.equipment.none': 'Nichts',
+  'plan.discipline.big-air': 'Big Air',
+  'plan.discipline.freestyle': 'Freestyle',
+  'plan.discipline.wave': 'Wave',
+  'plan.discipline.foil': 'Foil',
+  'plan.discipline.wing': 'Wing',
+  'plan.season.build': 'Aufbaumodus',
+  'plan.season.maintain': 'Erhaltungsmodus',
+
+  // --- Plan-Generator: Einstellungen ---
+  'plan.settings.eyebrow': 'Trainingsplan',
+  'plan.settings.title': 'Plan-Generator',
+  'plan.settings.noneBody': 'Aktiv ist der Standardplan: Tag A / Tag B / Circuit.',
+  'plan.settings.setup': 'Plan einrichten',
+  'plan.settings.edit': 'Anpassen',
+  'plan.settings.reset': 'Auf Standardplan zurücksetzen',
+  'plan.settings.resetDone': 'Zurück auf dem Standardplan.',
+  'plan.settings.created': 'Plan aus deinen Angaben ist aktiv.',
+  'plan.settings.gentleTag': 'gelenkschonend',
+  'plan.settings.seasonActive': 'Aktueller Modus: {mode}',
+  'plan.settings.seasonAuto': 'Saison-Anpassung automatisch',
+  'plan.settings.seasonAutoBody': 'Bei vielen Kite-Tagen automatisch weniger Kraftvolumen.',
+  'plan.settings.seasonWarnTitle': 'Saison-Anpassung ausschalten?',
+  'plan.settings.seasonWarnBody': 'Ohne Saison-Anpassung trainierst du auch in der Kite-Hochsaison mit vollem Kraftvolumen. Bei vielen Kite-Tagen kann das zu viel werden.',
+  'plan.settings.seasonWarnConfirm': 'Trotzdem ausschalten',
+
+  // --- Plan-Generator: Dashboard-Hinweis & Workout ---
+  'plan.nudge.title': 'Neu: Trainingsplan aus deinen Angaben',
+  'plan.nudge.body': 'Equipment, Tage, Disziplin — daraus baut die App deine Kraft-Templates.',
+  'plan.nudge.setup': 'Einrichten',
+  'plan.nudge.later': 'Später',
+  'plan.workout.maintainHint': 'Erhaltungsmodus — weniger Volumen, du kitest gerade viel.',
+  'plan.title.A': 'Tag A',
+  'plan.title.B': 'Tag B',
+  'plan.title.D': 'Tag D',
+  'plan.title.KB': 'Circuit',
+  'plan.title.full': 'Ganzkörper',
+  'plan.subtitle.big-air': 'Big Air · Exzentrik & Hüft-Power',
+  'plan.subtitle.freestyle': 'Freestyle · Pop & Rotation',
+  'plan.subtitle.wave': 'Wave · Ausdauer & Rumpf',
+  'plan.subtitle.foil': 'Foil · Iso-Beine & Rumpf',
+  'plan.subtitle.wing': 'Wing · Schulter & Griff'
 };
 
 export type Messages = typeof messages;

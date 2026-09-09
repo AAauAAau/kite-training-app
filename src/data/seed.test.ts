@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyInjuryToSlots } from '../logic/injury';
-import type { BodyRegion } from '../types';
+import type { BodyRegion, Equipment, EquipmentAccess, MovementPattern } from '../types';
 import { boardOffLevels, exercises, mobilityChecklists, templates } from './seed';
 
 describe('training seed', () => {
@@ -149,5 +149,57 @@ describe('training seed', () => {
       'Auf Knien als Regression',
       'Balance + Rotationskontrolle'
     ]);
+  });
+});
+
+describe('plan-generator seed additions', () => {
+  // Stufe → erlaubte Exercise.equipment-Werte (docs/features/plan-generator.md).
+  const TIER_EQUIPMENT: Record<EquipmentAccess, Equipment[]> = {
+    gym: ['barbell', 'dumbbell', 'kettlebell', 'machine', 'bodyweight', 'band', 'rings'],
+    kettlebell: ['kettlebell', 'bodyweight', 'band'],
+    rings: ['rings', 'bodyweight', 'band'],
+    none: ['bodyweight', 'band']
+  };
+  const ALL_PATTERNS: MovementPattern[] = [
+    'squat', 'hinge', 'single-leg', 'push-h', 'push-v', 'pull-h', 'pull-v',
+    'carry', 'core-anti-ext', 'core-anti-rot', 'core-anti-lat', 'hamstring-curl'
+  ];
+
+  it('gives every rings exercise a pattern, rings equipment and an explicit strains list', () => {
+    for (const exercise of exercises.filter((item) => item.category === 'rings')) {
+      expect(exercise.pattern, exercise.id).toBeDefined();
+      expect(exercise.equipment, exercise.id).toBe('rings');
+      expect(exercise.strains, exercise.id).toBeDefined();
+    }
+  });
+
+  it('gives every strength exercise a pattern, an equipment and an explicit strains list', () => {
+    for (const exercise of exercises.filter((item) => item.category === 'strength')) {
+      expect(exercise.pattern, exercise.id).toBeDefined();
+      expect(exercise.equipment, exercise.id).toBeDefined();
+      expect(exercise.strains, exercise.id).toBeDefined();
+    }
+  });
+
+  it('gives every strength and rings exercise a youtube query', () => {
+    for (const exercise of exercises.filter((item) => item.category === 'strength' || item.category === 'rings')) {
+      expect(exercise.youtubeQuery, exercise.id).toBeTruthy();
+    }
+  });
+
+  it('has at least one exercise for the core-anti-ext pattern', () => {
+    expect(exercises.some((exercise) => exercise.pattern === 'core-anti-ext')).toBe(true);
+  });
+
+  it('resolves every movement pattern on every equipment tier', () => {
+    const strengthOrRings = exercises.filter((item) => item.category === 'strength' || item.category === 'rings');
+    for (const pattern of ALL_PATTERNS) {
+      for (const [tier, allowed] of Object.entries(TIER_EQUIPMENT) as [EquipmentAccess, Equipment[]][]) {
+        const matches = strengthOrRings.filter((exercise) =>
+          exercise.pattern === pattern && exercise.equipment && allowed.includes(exercise.equipment)
+        );
+        expect(matches.length, `${pattern} @ ${tier}`).toBeGreaterThan(0);
+      }
+    }
   });
 });

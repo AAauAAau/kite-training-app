@@ -6,7 +6,7 @@ import { alternativesFor, groupByEquipment } from './substitution.ts';
 export const INJURY_DURATION_DAYS = [7, 14, 28] as const;
 
 /** Templates, deren Aufbau der Verletzungs-Modus anpasst. */
-export const injurySessionTypes: Session['type'][] = ['A', 'B', 'KB', 'BOARD_OFF'];
+export const injurySessionTypes: Session['type'][] = ['A', 'B', 'D', 'KB', 'BOARD_OFF'];
 
 /** Message-Key für den Regionsnamen — die Komponente übersetzt. */
 export function bodyRegionLabel(region: BodyRegion): MessageKey {

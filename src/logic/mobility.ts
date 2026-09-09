@@ -1,6 +1,6 @@
 import type { ChecklistItem, Session, SessionType } from '../types';
 
-const postSessionHipTypes: SessionType[] = ['A', 'B', 'RINGS', 'KB', 'KITE'];
+const postSessionHipTypes: SessionType[] = ['A', 'B', 'D', 'RINGS', 'KB', 'KITE'];
 
 export function offersPostSessionHip(type: SessionType): boolean {
   return postSessionHipTypes.includes(type);

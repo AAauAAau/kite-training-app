@@ -4,7 +4,7 @@ import { addDays, daysBetween, localDate, startOfWeek } from './date.ts';
 
 export const COMEBACK_AFTER_DAYS = 21;
 export const COMEBACK_FACTOR = 0.8;
-const comebackSessionTypes: Session['type'][] = ['A', 'B', 'KB'];
+const comebackSessionTypes: Session['type'][] = ['A', 'B', 'D', 'KB'];
 
 export const AUTOREGULATION_STEP = 0.075;
 export type AutoregulationFeedback = 'easy' | 'ok' | 'hard';
@@ -14,7 +14,7 @@ export const kbWithoutStrengthWarning: MessageDescriptor = { key: 'warning.kbWit
 
 export function sessionLoad(session: Session): number {
   switch (session.type) {
-    case 'A': case 'B': case 'SPRINT': return 2;
+    case 'A': case 'B': case 'D': case 'SPRINT': return 2;
     case 'RINGS': return session.intensity === 'hard' ? 2 : session.intensity === 'chill' ? 1 : 1.5;
     case 'KB': case 'PADEL': return 1.5;
     case 'BOARD_OFF': return 1;

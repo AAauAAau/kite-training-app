@@ -101,11 +101,11 @@ describe('applyInjuryToSlots', () => {
     expect(result.swaps).toEqual([
       { from: 'front-squat-or-stepdown', to: 'goblet-squat' },
       { from: 'barbell-row', to: 'seal-row' },
-      { from: 'single-leg-rdl', to: 'hip-thrust' }
+      { from: 'single-leg-rdl', to: 'hip-thrust' },
+      { from: 'back-extension-45', to: 'band-pull-through' }
     ]);
-    // only one safe hinge alternative exists, so the endurance back extension drops out
-    expect(result.dropped).toEqual(['back-extension-45']);
-    expect(result.exerciseIds).not.toContain('back-extension-45');
+    // hip-thrust takes the first safe hinge slot, the band pull-through the second
+    expect(result.dropped).toEqual([]);
   });
 
   it('drops the knee work on Tag A when no knee-sparing alternative exists', () => {

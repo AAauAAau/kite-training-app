@@ -1,6 +1,6 @@
 export type Lang = 'de' | 'en' | 'fr';
 
-export type SessionType = 'A' | 'B' | 'RINGS' | 'KB' | 'SPRINT' | 'MOBILITY' | 'KITE' | 'PADEL' | 'BOARD_OFF' | 'OTHER';
+export type SessionType = 'A' | 'B' | 'D' | 'RINGS' | 'KB' | 'SPRINT' | 'MOBILITY' | 'KITE' | 'PADEL' | 'BOARD_OFF' | 'OTHER';
 export type Feel = 'good' | 'ok' | 'wrecked';
 export type TrainingIntensity = 'chill' | 'normal' | 'hard';
 export type KiteIntensity = TrainingIntensity;
@@ -67,6 +67,23 @@ export interface Injury {
   until: string;   // ISO-Datum, voraussichtliches Ende (inklusiv)
 }
 
+// Plan-Generator (docs/features/plan-generator.md, docs/training/plan-generator.md).
+// Vier Onboarding-Antworten → deterministische Krafttemplates. Ohne Profil bleibt
+// alles bit-identisch zu den Seed-Templates.
+export type EquipmentAccess = 'gym' | 'kettlebell' | 'rings' | 'none';
+export type KiteDiscipline = 'big-air' | 'freestyle' | 'wave' | 'foil' | 'wing';
+export type SeasonMode = 'build' | 'maintain';
+
+export interface TrainingProfile {
+  skipped?: boolean;            // Onboarding bewusst übersprungen → Seed-Templates, nicht erneut fragen
+  equipment?: EquipmentAccess;  // bei skipped ohne Bedeutung; sonst Pflicht
+  daysPerWeek?: 1 | 2 | 3 | 4;
+  discipline?: KiteDiscipline;
+  preferGentle?: boolean;       // gelenkschonende Übungsauswahl (GENTLE_FIRST-Reihenfolge)
+  seasonAdjust?: boolean;       // default (undefined) = an; false = immer build-Volumen
+  createdAt: number;
+}
+
 export interface Exercise {
   id: string;
   name: string;
@@ -110,6 +127,8 @@ export interface Settings {
   boardOffHasRig?: boolean;
   injuries?: Injury[];
   lang?: Lang;   // aktive Sprache; fehlt → beim Start aus navigator.language gesetzt
+  trainingProfile?: TrainingProfile;   // Plan-Generator; fehlt → Seed-Templates
+  planNudgeDismissed?: boolean;         // Dashboard-Hinweis „Plan einrichten" weggeklickt
 }
 
 export interface TemplateExercise {
@@ -122,7 +141,7 @@ export interface TemplateExercise {
 }
 
 export interface SessionTemplate {
-  type: Extract<SessionType, 'A' | 'B' | 'RINGS' | 'KB' | 'BOARD_OFF'>;
+  type: Extract<SessionType, 'A' | 'B' | 'D' | 'RINGS' | 'KB' | 'BOARD_OFF'>;
   title: string;
   subtitle: string;
   exercises: TemplateExercise[];
