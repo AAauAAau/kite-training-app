@@ -8,6 +8,7 @@ import { mobilityChecklists } from '../data/seed';
 import { bodyRegionLabel, injuryState } from '../logic/injury';
 import { localizeMobility } from '../logic/localize';
 import { deloadDue, sessionLoad, weeklyStrengthWarning } from '../logic/training';
+import { seasonMode } from '../logic/planGenerator';
 import type { BodyRegion, Lang } from '../types';
 import { useAppStore } from '../store';
 import type { ChecklistItem, KiteIntensity, Session } from '../types';
@@ -17,7 +18,7 @@ import { LoadSparkline } from './LoadSparkline';
 import { SessionDatePicker } from './SessionDatePicker';
 import { primeTimerAudio } from './TimerDock';
 
-export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKiteLogged: (sessionId: string) => void }) {
+export function Dashboard({ onTrain, onKiteLogged, onSetupPlan }: { onTrain: () => void; onKiteLogged: (sessionId: string) => void; onSetupPlan: () => void }) {
   const { sessions, settings, activeTimer, addSession, updateSession, deleteSession, dismissDeload, updateSettings, startTimer, stopTimer } = useAppStore();
   const lang = useLang();
   const [quickKite, setQuickKite] = useState<Session | null>(null);
@@ -26,6 +27,10 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
   const today = localDate();
   const due = useMemo(() => deloadDue(sessions, settings, today), [sessions, settings, today]);
   const dismissed = settings.deloadDismissedUntil && settings.deloadDismissedUntil >= today;
+  const profile = settings.trainingProfile;
+  const showPlanNudge = !profile && sessions.length > 0 && !settings.planNudgeDismissed;
+  const planActive = Boolean(profile && !profile.skipped && profile.equipment && profile.daysPerWeek && profile.discipline);
+  const maintain = planActive && profile!.seasonAdjust !== false && seasonMode(sessions, today) === 'maintain';
   const todaySessions = sessions.filter((session) => session.date === today);
   const todayActivities = todaySessions.filter((session) => !isMorningRoutine(session));
   const activeKite = (quickKite?.date === kiteDate ? quickKite : null) ?? sessions.find((session) => session.date === kiteDate && session.type === 'KITE') ?? null;
@@ -134,6 +139,23 @@ export function Dashboard({ onTrain, onKiteLogged }: { onTrain: () => void; onKi
 
       {strengthWarning && (
         <section className="alert-card subtle"><AlertIcon /><div><strong>{t('dashboard.legStrengthTitle')}</strong><p>{t(strengthWarning.key, strengthWarning.params)}</p></div></section>
+      )}
+
+      {showPlanNudge && (
+        <section className="alert-card subtle">
+          <div>
+            <strong>{t('plan.nudge.title')}</strong>
+            <p>{t('plan.nudge.body')}</p>
+            <div className="injury-reminder-actions">
+              <button className="text-button" onClick={onSetupPlan}>{t('plan.nudge.setup')}</button>
+              <button className="text-button" onClick={() => void updateSettings({ planNudgeDismissed: true })}>{t('plan.nudge.later')}</button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {maintain && (
+        <section className="alert-card subtle"><AlertIcon /><div><strong>{t('plan.season.maintain')}</strong><p>{t('plan.workout.maintainHint')}</p></div></section>
       )}
 
       {injury.expired.map((item) => (

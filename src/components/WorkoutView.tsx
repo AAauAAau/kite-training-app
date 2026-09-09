@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { t } from '../i18n';
+import type { MessageKey } from '../i18n';
 import { ringsSkillKey, trainingIntensityKey } from '../i18n/enums';
 import { useLang } from '../i18n/react';
-import { boardOffLevels, mobilityChecklists, mobilityItems, templates } from '../data/seed';
+import { boardOffLevels, mobilityChecklists, mobilityItems } from '../data/seed';
 import { formatShortDate, localDate } from '../logic/date';
 import { formatFixed, formatKg, formatLoad, localeFor } from '../logic/format';
 import { localizeBoardOffLevel, localizeExercise, localizeMobility, localizeTemplate } from '../logic/localize';
+import { activeTemplates, seasonMode } from '../logic/planGenerator';
 import { boardOffLevelSlots, levelNeedsRig, recommendBoardOffLevel } from '../logic/boardoff';
 import type { BoardOffAssessment } from '../logic/boardoff';
 import { autoregulatedKg, comebackState, lastLoggedSet, sprintPrescription, sprintWarnings, sprintWeek, startingTarget, strengthWarnings } from '../logic/training';
@@ -60,6 +62,11 @@ function exerciseName(exercises: Exercise[], id: string, lang: Lang): string {
 
 const ringsSkillValues: RingsSkill[] = ['ring-muscle-up', 'l-sit', 'side-split', 'pistol-squat'];
 
+const PLAN_DRAFT_TYPES: SessionType[] = ['A', 'B', 'D', 'KB'];
+const PLAN_TITLE_KEY: Record<'A' | 'B' | 'D' | 'KB', MessageKey> = {
+  A: 'plan.title.A', B: 'plan.title.B', D: 'plan.title.D', KB: 'plan.title.KB'
+};
+
 export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const { sessions, exercises, settings, activeTimer, addSession, updateSettings, startTimer, stopTimer } = useAppStore();
   const lang = useLang();
@@ -75,6 +82,26 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   const comeback = comebackState(sessionHistory, sessionDate);
   const injury = injuryState(settings, sessionDate);
 
+  const profile = settings.trainingProfile;
+  const usingPlan = Boolean(profile && !profile.skipped && profile.equipment && profile.daysPerWeek && profile.discipline);
+  const activePlan = useMemo(
+    () => activeTemplates(settings, sessions, exercises, sessionDate),
+    [settings, sessions, exercises, sessionDate]
+  );
+  const maintain = usingPlan && profile!.seasonAdjust !== false && seasonMode(sessions, sessionDate) === 'maintain';
+
+  function planLabel(tpl: SessionTemplate): { title: string; subtitle: string } {
+    if (!usingPlan || !(tpl.type in PLAN_TITLE_KEY)) {
+      const localized = localizeTemplate(tpl, lang);
+      return { title: localized.title, subtitle: localized.subtitle };
+    }
+    const oneDay = profile!.daysPerWeek === 1 && tpl.type === 'A';
+    return {
+      title: oneDay ? t('plan.title.full') : t(PLAN_TITLE_KEY[tpl.type as 'A' | 'B' | 'D' | 'KB']),
+      subtitle: t(`plan.subtitle.${profile!.discipline!}`)
+    };
+  }
+
   function injuryHint(swaps: { from: string; to: string }[], dropped: string[]) {
     return swaps.length || dropped.length
       ? { regions: injury.blockedRegions, swaps, dropped }
@@ -82,7 +109,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
   }
 
   function startTemplate(rawTemplate: SessionTemplate) {
-    const template = localizeTemplate(rawTemplate, lang);
+    const template = usingPlan ? rawTemplate : localizeTemplate(rawTemplate, lang);
     const adjustment = injury.blockedRegions.length && injurySessionTypes.includes(template.type)
       ? applyInjuryToSlots(template.exercises, exercises, injury.blockedRegions)
       : { swaps: [], dropped: [] };
@@ -371,13 +398,13 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
       <div className="template-list">
         <div className="template-group-heading"><span className="eyebrow">{t('workout.plansHeading')}</span><small>{t('workout.plansSub')}</small></div>
-        {templates.map((rawTemplate) => {
-          const template = localizeTemplate(rawTemplate, lang);
-          const load = formatLoad(template.type === 'A' || template.type === 'B' ? 2 : 1.5, lang);
+        {activePlan.map((rawTemplate) => {
+          const { title, subtitle } = planLabel(rawTemplate);
+          const load = formatLoad(rawTemplate.type === 'A' || rawTemplate.type === 'B' || rawTemplate.type === 'D' ? 2 : 1.5, lang);
           return (
-            <button className="template-card card" key={template.type} onClick={() => startTemplate(rawTemplate)}>
-              <span className={`template-letter type-${template.type.toLowerCase()}`}>{template.type === 'RINGS' ? 'R' : template.type}</span>
-              <span><strong>{template.title}</strong><small>{t('workout.templateSub', { subtitle: template.subtitle, load })}</small></span><ChevronIcon />
+            <button className="template-card card" key={rawTemplate.type} onClick={() => startTemplate(rawTemplate)}>
+              <span className={`template-letter type-${rawTemplate.type.toLowerCase()}`}>{rawTemplate.type === 'RINGS' ? 'R' : rawTemplate.type}</span>
+              <span><strong>{title}</strong><small>{t('workout.templateSub', { subtitle, load })}</small></span><ChevronIcon />
             </button>
           );
         })}
@@ -411,8 +438,10 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
     </main>
   );
 
-  const rawCurrentTemplate = templates.find((template) => template.type === draft.type);
-  const currentTemplate = rawCurrentTemplate ? localizeTemplate(rawCurrentTemplate, lang) : undefined;
+  const rawCurrentTemplate = activePlan.find((template) => template.type === draft.type);
+  const currentTemplate = rawCurrentTemplate
+    ? (usingPlan ? { ...rawCurrentTemplate, ...planLabel(rawCurrentTemplate) } : localizeTemplate(rawCurrentTemplate, lang))
+    : undefined;
   const prescription = draft.type === 'SPRINT' ? sprintPrescription(week) : null;
   const externalRings = draft.type === 'RINGS' && draft.sourceApp === 'die-ringe';
   const preSession = localizeMobility(mobilityChecklists.find((template) => template.variant === 'pre-session')!, lang);
@@ -431,13 +460,20 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
       </header>
       <SessionDatePicker value={sessionDate} onChange={setSessionDate} />
 
-      {comeback.active && comeback.reason && (draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
+      {comeback.active && comeback.reason && PLAN_DRAFT_TYPES.includes(draft.type) && (
         <section className="alert-card subtle">
           <AlertIcon />
           <div>
             <strong>{t('workout.comebackTitle')}</strong>
             <p>{t(comeback.reason.key, comeback.reason.params)} {t('comeback.hintSuffix')}</p>
           </div>
+        </section>
+      )}
+
+      {maintain && PLAN_DRAFT_TYPES.includes(draft.type) && (
+        <section className="alert-card subtle">
+          <AlertIcon />
+          <div><strong>{t('plan.season.maintain')}</strong><p>{t('plan.workout.maintainHint')}</p></div>
         </section>
       )}
 
@@ -467,7 +503,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         </>
       )}
 
-      {(draft.type === 'A' || draft.type === 'B' || draft.type === 'KB') && (
+      {PLAN_DRAFT_TYPES.includes(draft.type) && (
         <section className="mobility-card card">
           <div><span className="eyebrow">{t('workout.warmupEyebrow', { min: preSession.durationMin })}</span><h3>{preSession.title}</h3></div>
           {preSession.items.map((item) => {
@@ -560,7 +596,7 @@ export function WorkoutView({ onSaved, onCancel }: WorkoutViewProps) {
         })}
       </div>}
 
-      {(draft.type === 'A' || draft.type === 'B' || draft.type === 'MOBILITY') && (
+      {(draft.type === 'A' || draft.type === 'B' || draft.type === 'D' || draft.type === 'MOBILITY') && (
         <section className="mobility-card cooldown-card card">
           <div><span className="eyebrow">{draft.type === 'MOBILITY' ? t('workout.mobilityChecklistEyebrow') : t('workout.cooldownEyebrow')}</span><h3>{draft.type === 'MOBILITY' ? t('workout.mobilityChecklistTitle') : t('workout.cooldownTitle')}</h3></div>
           {mobilityItems.map((rawItem) => {

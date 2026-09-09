@@ -3,6 +3,7 @@ import { Dashboard } from './components/Dashboard';
 import { FeelSheet } from './components/FeelSheet';
 import { CalendarIcon, HistoryIcon, HomeIcon, PlusIcon, SettingsIcon } from './components/Icons';
 import { LogView } from './components/LogView';
+import { Onboarding } from './components/Onboarding';
 import { PostSessionHipRoutine } from './components/PostSessionHipRoutine';
 import { SettingsView } from './components/SettingsView';
 import { TimerDock } from './components/TimerDock';
@@ -17,11 +18,12 @@ import type { Feel, Session } from './types';
 type View = 'home' | 'train' | 'week' | 'log' | 'settings';
 
 export default function App() {
-  const { ready, initialize, setFeel } = useAppStore();
+  const { ready, initialize, setFeel, settings, sessions } = useAppStore();
   useLang();
   const [view, setView] = useState<View>('home');
   const [feelSessionId, setFeelSessionId] = useState<string | null>(null);
   const [hipSessionId, setHipSessionId] = useState<string | null>(null);
+  const [planSetup, setPlanSetup] = useState(false);
 
   useEffect(() => { void initialize(); }, [initialize]);
 
@@ -38,9 +40,18 @@ export default function App() {
 
   if (!ready) return <div className="splash"><div className="splash-kite">K</div><strong>{t('app.name')}</strong><span>{t('splash.preparing')}</span></div>;
 
+  if (planSetup || (!settings.trainingProfile && sessions.length === 0)) {
+    return (
+      <div className="app-shell">
+        <Onboarding onDone={() => { setPlanSetup(false); setView('home'); }} />
+        <TimerDock />
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
-      {view === 'home' && <Dashboard onTrain={() => setView('train')} onKiteLogged={(id) => setHipSessionId(id)} />}
+      {view === 'home' && <Dashboard onTrain={() => setView('train')} onKiteLogged={(id) => setHipSessionId(id)} onSetupPlan={() => setPlanSetup(true)} />}
       {view === 'train' && <WorkoutView onSaved={finishWorkout} onCancel={() => setView('home')} />}
       {view === 'week' && <WeekView />}
       {view === 'log' && <LogView />}

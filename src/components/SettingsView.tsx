@@ -6,7 +6,9 @@ import { exportBackup } from '../db';
 import { addDays, daysBetween, formatShortDate, localDate, weekdayLabels } from '../logic/date';
 import { formatKg, localeFor, parseDecimal } from '../logic/format';
 import { injuryState, selectableBodyRegions } from '../logic/injury';
+import { seasonMode } from '../logic/planGenerator';
 import { useAppStore } from '../store';
+import { Onboarding } from './Onboarding';
 import type { BodyRegion, Lang } from '../types';
 
 const GYM_DAYS: number[] = [1, 2, 3, 4, 5, 6, 0]; // Mo … So, passend zu weekdayLabels()
@@ -25,7 +27,14 @@ export function SettingsView() {
   const [message, setMessage] = useState('');
   const [injuryRegion, setInjuryRegion] = useState<BodyRegion | null>(null);
   const [injuryDays, setInjuryDays] = useState(14);
+  const [planEditing, setPlanEditing] = useState(false);
+  const [seasonWarn, setSeasonWarn] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const profile = settings.trainingProfile;
+  const hasPlan = Boolean(profile && !profile.skipped && profile.equipment && profile.daysPerWeek && profile.discipline);
+  const seasonAuto = profile?.seasonAdjust !== false;
+  const activeSeason = hasPlan && seasonAuto ? seasonMode(sessions, localDate()) : 'build';
 
   const today = localDate();
   const dayLabels = weekdayLabels(locale);
@@ -132,6 +141,55 @@ export function SettingsView() {
           ))}
         </div>
       </section>
+      <section className="settings-card card">
+        <span className="eyebrow">{t('plan.settings.eyebrow')}</span><h2>{t('plan.settings.title')}</h2>
+        {planEditing ? (
+          <Onboarding
+            embedded
+            initial={profile}
+            onDone={() => { setPlanEditing(false); setMessage(hasPlan ? t('plan.settings.created') : ''); }}
+            onCancel={() => setPlanEditing(false)}
+          />
+        ) : hasPlan && profile ? (
+          <>
+            <p className="plan-summary">
+              {t(`plan.equipment.${profile.equipment!}`)} · {t('plan.onboarding.daysUnit', { n: profile.daysPerWeek! })} · {t(`plan.discipline.${profile.discipline!}`)}
+              {profile.preferGentle ? ` · ${t('plan.settings.gentleTag')}` : ''}
+            </p>
+            <p><small>{t('plan.settings.seasonActive', { mode: t(`plan.season.${activeSeason}`) })}</small></p>
+            <div className="segmented">
+              <button className={seasonAuto ? 'selected' : ''} aria-pressed={seasonAuto} onClick={() => { if (!seasonAuto) void updateSettings({ trainingProfile: { ...profile, seasonAdjust: true } }); }}>
+                {t('common.on')}
+              </button>
+              <button className={seasonAuto ? '' : 'selected'} aria-pressed={!seasonAuto} onClick={() => { if (seasonAuto) setSeasonWarn(true); }}>
+                {t('common.off')}
+              </button>
+            </div>
+            <p><small>{t('plan.settings.seasonAuto')} — {t('plan.settings.seasonAutoBody')}</small></p>
+            {seasonWarn && (
+              <div className="alert-card subtle">
+                <div>
+                  <strong>{t('plan.settings.seasonWarnTitle')}</strong>
+                  <p>{t('plan.settings.seasonWarnBody')}</p>
+                  <button className="secondary" onClick={() => { void updateSettings({ trainingProfile: { ...profile, seasonAdjust: false } }); setSeasonWarn(false); }}>
+                    {t('plan.settings.seasonWarnConfirm')}
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="backup-actions">
+              <button className="secondary" onClick={() => setPlanEditing(true)}>{t('plan.settings.edit')}</button>
+              <button className="secondary" onClick={() => { void updateSettings({ trainingProfile: { skipped: true, createdAt: Date.now() } }); setMessage(t('plan.settings.resetDone')); }}>{t('plan.settings.reset')}</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p>{t('plan.settings.noneBody')}</p>
+            <button className="primary" onClick={() => setPlanEditing(true)}>{t('plan.settings.setup')}</button>
+          </>
+        )}
+      </section>
+
       {settings.boardOffLevel !== undefined && (
         <section className="settings-card card">
           <span className="eyebrow">{t('settings.boardOffEyebrow')}</span><h2>{t('settings.boardOffTitle')}</h2>

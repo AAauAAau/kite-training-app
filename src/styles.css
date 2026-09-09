@@ -102,6 +102,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .type-kite, .type-sprint { color: #ffffff; background: var(--mint); }
 .type-a { background: #e7e1f6; color: #5a44a0; }
 .type-b { background: #fbe0d8; color: #b0512f; }
+.type-d { background: #dfe8f7; color: #365a9a; }
 .type-rings { background: #d9edf3; color: #1a6f8c; }
 .type-kb { background: #f5e7c8; color: #876721; }
 .type-board_off { background: #f2e5c5; color: #836327; }
@@ -508,5 +509,19 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
   .page { min-height: calc(100vh - 40px); padding-left: 26px; padding-right: 26px; }
   .sticky-workout-header { margin-left: -26px; margin-right: -26px; padding-left: 26px; padding-right: 26px; }
 }
+
+/* --- Plan-Generator: Onboarding --- */
+.onboarding-page { display: flex; flex-direction: column; gap: 18px; }
+.onboarding-step { display: grid; gap: 12px; }
+.onboarding-step h2 { margin: 0; font-size: 1.15rem; letter-spacing: -0.02em; }
+.onboarding-step p { margin: 0; color: var(--muted); }
+.segmented-stack { flex-direction: column; max-width: none; }
+.segmented-stack button { min-height: 44px; }
+.onboarding-nav { display: flex; justify-content: space-between; gap: 12px; }
+.onboarding-nav button { min-width: 120px; }
+.onboarding-skip { display: grid; gap: 4px; justify-items: center; text-align: center; }
+.onboarding-skip small { color: var(--muted); }
+.onboarding-embedded { display: grid; gap: 14px; margin-top: 4px; }
+.plan-summary { font-weight: 700; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; } }
